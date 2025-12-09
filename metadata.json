@@ -1,0 +1,7 @@
+{
+  "name": "RODOVAR Rastreamento (VERSAO 2)",
+  "description": "Sistema de rastreamento de cargas e logística em tempo real para a RODOVAR.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
