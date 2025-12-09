@@ -148,10 +148,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
 
   useEffect(() => {
     loadShipments();
-    loadUsers();
+    // loadUsers() will be called when isMaster becomes true
     loadDrivers();
     loadSettings();
   }, []);
+
+  // Fix: Load users when role is confirmed as MASTER
+  useEffect(() => {
+      if (isMaster) {
+          loadUsers();
+      }
+  }, [isMaster]);
 
   useEffect(() => {
     if (!isEditing && activeTab === 'shipments' && !code) {
@@ -181,9 +188,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
   };
 
   const loadUsers = async () => {
-    if (isMaster) {
-      setUsers(await getAllUsers());
-    }
+    // Only load users if role is MASTER (double check inside function or rely on effect)
+    // Note: isMaster is from closure state.
+    // Since we call this from an effect that depends on [isMaster], it should be correct.
+    setUsers(await getAllUsers());
   };
 
   const loadDrivers = async () => {
@@ -746,6 +754,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
           <div className="bg-rodovar-gray p-6 rounded-xl border border-gray-700 shadow-xl">
               <h3 className="text-lg font-bold text-rodovar-white mb-6 border-b border-gray-700 pb-2">Administradores Ativos</h3>
               <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                  {users.length === 0 && <p className="text-gray-500 text-sm italic">Carregando usuários...</p>}
                   {users.map(u => (
                       <div key={u.username} className="group flex justify-between items-start p-4 bg-black/20 rounded-xl border border-gray-800 hover:border-gray-600 transition-all">
                           <div className="flex items-center gap-4">
