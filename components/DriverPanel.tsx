@@ -25,6 +25,9 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
   // --- SHIPMENT STATES ---
   const [code, setCode] = useState('');
   const [shipment, setShipment] = useState<TrackingData | null>(null);
+  // REF PARA EVITAR STALE CLOSURES (Erro: Carga não carregada)
+  const shipmentRef = useRef<TrackingData | null>(null);
+
   const [error, setError] = useState('');
   const [isLocating, setIsLocating] = useState(false);
   const [lastUpdateLog, setLastUpdateLog] = useState<string>('');
@@ -105,12 +108,14 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
       setCompanySettings(settings);
   };
 
+  // Sync Ref with State
+  useEffect(() => {
+      shipmentRef.current = shipment;
+  }, [shipment]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // IMPORTANT: Just clear interval to stop JS execution on this view, 
-      // but DO NOT call stopLiveTracking() logic that wipes localStorage state.
-      // This allows "persistent" feeling when coming back.
       if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
       releaseWakeLock();
       stopVoiceAssistant();
@@ -131,7 +136,6 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
       }
 
       // LÓGICA DE SELEÇÃO DE VOZ NATURAL
-      // Prioriza vozes da Google (Chrome) ou Microsoft (Edge) que soam muito mais humanas
       const ptVoices = voices.filter(v => v.lang.includes('pt-BR') || v.lang.includes('pt_BR'));
       const preferredVoice = ptVoices.find(v => v.name.includes('Google')) || 
                              ptVoices.find(v => v.name.includes('Luciana')) || // Microsoft
@@ -307,7 +311,7 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                if (navigator.onLine) {
                    await saveShipment(updatedShipment);
                    setShipment(updatedShipment);
-                   stopLiveTracking(false); // Stop logic
+                   stopLiveTracking(true); // Stop logic SILENTLY (True = No WhatsApp)
                    setShowProofModal(false);
                    sendWhatsAppUpdate('finish');
                    alert("✅ ENTREGA FINALIZADA COM SUCESSO!\nComprovante Digital Gerado.");
@@ -331,9 +335,7 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
 
   const processVoiceCommand = (transcript: string) => {
     const command = transcript.toLowerCase();
-    
-    // Feedback de confirmação que ouviu
-    // speak("Processando..."); 
+    const s = shipmentRef.current;
 
     if (command.includes('problema') || command.includes('socorro') || command.includes('ajuda')) {
         speak("Entendido. Abrindo WhatsApp para reportar problema urgente.");
@@ -346,15 +348,15 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
         return;
     }
     if (command.includes('ler') || command.includes('status') || command.includes('detalhes')) {
-        const dest = shipment?.destination || 'desconhecido';
+        const dest = s?.destination || 'desconhecido';
         const dist = remainingDistanceKm ? `${remainingDistanceKm.toFixed(0)} quilômetros` : 'não calculada';
-        speak(`Carga ${shipment?.code}. Destino: ${dest}. Distância restante: ${dist}. Status atual: ${StatusLabels[shipment?.status || TrackingStatus.IN_TRANSIT]}.`);
+        speak(`Carga ${s?.code}. Destino: ${dest}. Distância restante: ${dist}. Status atual: ${StatusLabels[s?.status || TrackingStatus.IN_TRANSIT]}.`);
         return;
     }
     if (command.includes('iniciar rastreamento') || command.includes('começar viagem')) {
          if (!isLiveTracking) {
              speak("Iniciando rastreamento em tempo real.");
-             startLiveTracking(shipment?.code || '', false);
+             if (s) toggleLiveTracking(); // Use toggle to handle status update
          } else {
              speak("O rastreamento já está ativo.");
          }
@@ -363,7 +365,7 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
     if (command.includes('parar rastreamento')) {
         if (isLiveTracking) {
             speak("Rastreamento pausado.");
-            stopLiveTracking(false);
+            if (s) toggleLiveTracking(); // Use toggle to handle status update
         }
         return;
     }
@@ -374,7 +376,6 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
     const Recognition = SpeechRecognition || webkitSpeechRecognition;
     if (!Recognition) return; // Silent fail if no support
 
-    // speak("Assistente de voz ativo."); // Opcional
     const recognition = new Recognition();
     recognition.lang = 'pt-BR';
     recognition.continuous = true;
@@ -389,7 +390,6 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
       setTimeout(() => { if (recognitionRef.current) setVoiceStatus('Ouvindo comandos...'); }, 2000);
     };
     recognition.onend = () => { 
-        // Auto restart if it stops unexpectedly while active
         if (isVoiceActive) {
             try { recognition.start(); } catch(e) { setIsVoiceActive(false); } 
         } else {
@@ -429,8 +429,12 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
 
   const performUpdate = async (forceCompletion = false, silent = false) => {
        if (!navigator.geolocation) throw new Error("GPS Desativado.");
-       const currentCode = shipment?.code;
+       
+       const currentShipment = shipmentRef.current;
+       const currentCode = currentShipment?.code;
+       
        if (!currentCode) throw new Error("Carga não carregada.");
+       
        return new Promise<void>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(async (position) => {
                const { latitude, longitude } = position.coords;
@@ -438,7 +442,6 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                const freshShipment = await getShipment(currentCode);
                if (!freshShipment) return reject("Erro sync");
                
-               // REAL-TIME DISTANCE CALCULATION TO UPDATE UI INSTANTLY
                if (freshShipment.destinationCoordinates && 
                    (freshShipment.destinationCoordinates.lat !== 0 || freshShipment.destinationCoordinates.lng !== 0)) {
                    const dist = getDistanceFromLatLonInKm(
@@ -476,7 +479,6 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
   const requestWakeLock = async () => { try { if ('wakeLock' in navigator) { wakeLockRef.current = await (navigator as any).wakeLock.request('screen'); setWakeLockActive(true); } } catch (e) {} };
   const releaseWakeLock = async () => { if (wakeLockRef.current) { await wakeLockRef.current.release(); wakeLockRef.current = null; setWakeLockActive(false); } };
 
-  // --- START LIVE TRACKING (MODIFIED) ---
   const startLiveTracking = (currentCode: string, silentRestore = false) => {
       setIsLiveTracking(true);
       requestWakeLock();
@@ -484,38 +486,32 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
       
       if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
       
-      // Update Frequency: 5 seconds (FASTER UPDATES)
       trackingIntervalRef.current = window.setInterval(() => performUpdate(false, true), 5000);
       
       if(!silentRestore) {
           sendWhatsAppUpdate('start');
 
-          // --- VOICE ANNOUNCEMENT ON MANUAL START ---
-          const driverName = shipment?.driverName ? shipment.driverName.split(' ')[0] : 'Motorista';
-          const stopsCount = shipment?.stops ? shipment.stops.length : 0;
+          const s = shipmentRef.current;
+          const driverName = s?.driverName ? s.driverName.split(' ')[0] : 'Motorista';
+          const stopsCount = s?.stops ? s.stops.length : 0;
           
           let message = `Rastreamento iniciado. Olá, ${driverName}. `;
-          message += `Sua rota é de ${shipment?.origin} para ${shipment?.destination}. `;
+          message += `Sua rota é de ${s?.origin} para ${s?.destination}. `;
           
           if (stopsCount > 0) {
               message += `Você possui ${stopsCount} paradas intermediárias. `;
           }
           
           message += "Tenha uma excelente viagem e boa sorte!";
-          
-          // Speak message
           speak(message);
 
-          // Activate voice listening after message (approx 8s)
           setTimeout(() => {
              if (!isVoiceActive) startVoiceAssistant();
           }, 8000);
       }
   };
 
-  // --- STOP LIVE TRACKING (MODIFIED) ---
   const stopLiveTracking = (silent = false) => {
-      // Completely stops tracking and clears persistence
       if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
       setIsLiveTracking(false);
       releaseWakeLock();
@@ -524,16 +520,15 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
   };
 
   const sendWhatsAppUpdate = async (type: string) => {
-       if (!shipment) return;
+       const s = shipmentRef.current;
+       if (!s) return;
 
-       // Attempt to get freshest coordinates from shipment state (which is updated by tracking loop)
-       // Fallback to 0,0 if not available yet
-       const lat = shipment.currentLocation?.coordinates?.lat || 0;
-       const lng = shipment.currentLocation?.coordinates?.lng || 0;
+       const lat = s.currentLocation?.coordinates?.lat || 0;
+       const lng = s.currentLocation?.coordinates?.lng || 0;
        const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
        
-       const driverName = shipment.driverName || 'Motorista';
-       const loadCode = shipment.code;
+       const driverName = s.driverName || 'Motorista';
+       const loadCode = s.code;
 
        let message = '';
 
@@ -549,14 +544,14 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                 message = `📍 *ATUALIZAÇÃO DE LOCALIZAÇÃO*\n\n` +
                           `👤 *Motorista:* ${driverName}\n` +
                           `📦 *Carga:* ${loadCode}\n` +
-                          `🏙️ *Local:* ${shipment.currentLocation.city} - ${shipment.currentLocation.state}\n` +
+                          `🏙️ *Local:* ${s.currentLocation.city} - ${s.currentLocation.state}\n` +
                           `🗺️ *Ver no Mapa:* ${mapsLink}`;
                 break;
             case 'start':
                 message = `🚚 *INÍCIO DE VIAGEM*\n\n` +
                           `👤 *Motorista:* ${driverName}\n` +
                           `📦 *Carga:* ${loadCode}\n` +
-                          `🚩 *Rota:* ${shipment.origin} ➔ ${shipment.destination}\n` +
+                          `🚩 *Rota:* ${s.origin} ➔ ${s.destination}\n` +
                           `🟢 _Rastreamento via satélite ativado._`;
                 break;
             case 'stop':
@@ -588,6 +583,8 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
     const found = await getShipment(codeToUse.toUpperCase());
     if (found) {
         setShipment(found);
+        shipmentRef.current = found;
+
         setDriverNotes(found.driverNotes || '');
         setError('');
         localStorage.setItem('rodovar_active_driver_code', found.code);
@@ -596,10 +593,8 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
              setRemainingDistanceKm(dist);
         }
 
-        // --- CHECK PERSISTENCE ON LOGIN ---
         const savedState = localStorage.getItem(`rodovar_tracking_state_${found.code}`);
         if (savedState === 'active') {
-            // Restore silently (no voice, just data connection)
             startLiveTracking(found.code, true);
         }
 
@@ -609,20 +604,48 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
     setIsLocating(false);
   };
 
+  // --- MODIFIED LOGOUT LOGIC ---
   const handleLogout = () => { 
-      stopLiveTracking(false); // Fully stop
+      // Se estiver rastreando, apenas fecha o painel mas MANTÉM sessão
+      if (isLiveTracking) {
+          onClose();
+          return;
+      }
+      
+      // Se não estiver rastreando, faz logout completo
+      stopLiveTracking(true); // Stop silently
       stopVoiceAssistant();
       localStorage.removeItem('rodovar_active_driver_code'); 
       setShipment(null); 
       setCode(''); 
+      onClose();
   };
   
-  const toggleLiveTracking = () => {
+  // --- MODIFIED TOGGLE TRACKING LOGIC ---
+  const toggleLiveTracking = async () => {
     if (isLiveTracking) {
-        stopLiveTracking(false); // User manually stopping
-    } else {
+        // PARAR RASTREAMENTO
         if (shipment) {
-            startLiveTracking(shipment.code, false); // User manually starting (activates voice)
+            // 1. Atualizar status para STOPPED no banco
+            const stoppedShipment = { ...shipment, status: TrackingStatus.STOPPED, message: 'Rastreamento pausado pelo motorista.' };
+            setShipment(stoppedShipment);
+            shipmentRef.current = stoppedShipment;
+            await saveShipment(stoppedShipment);
+            
+            // 2. Parar tracking silenciosamente (TRUE = NO WHATSAPP LINK)
+            stopLiveTracking(true); 
+        }
+    } else {
+        // INICIAR RASTREAMENTO
+        if (shipment) {
+             // 1. Atualizar status para IN_TRANSIT no banco
+             const started = { ...shipment, status: TrackingStatus.IN_TRANSIT, message: 'Em deslocamento.' };
+             setShipment(started);
+             shipmentRef.current = started;
+             await saveShipment(started);
+             
+             // 2. Iniciar tracking (com aviso de voz e whats se não for restore)
+             startLiveTracking(shipment.code, false); 
         }
     }
   };
@@ -836,7 +859,7 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
             </div>
 
             <div className="h-[400px] md:h-auto min-h-[400px] bg-rodovar-gray rounded-xl border border-gray-700 overflow-hidden relative shadow-xl">
-                 <MapVisualization coordinates={shipment.currentLocation.coordinates} destinationCoordinates={shipment.destinationCoordinates} stops={shipment.stops} className="w-full h-full"/>
+                 <MapVisualization coordinates={shipment.currentLocation.coordinates} destinationCoordinates={shipment.destinationCoordinates} stops={shipment.stops} status={shipment.status} className="w-full h-full"/>
                  {shipment.stops && shipment.stops.length > 0 && (
                      <div className="absolute bottom-4 left-4 bg-black/80 backdrop-blur text-white text-[10px] p-2 rounded border border-gray-700 max-w-[200px]">
                          <p className="font-bold text-rodovar-yellow mb-1">ROTA:</p>

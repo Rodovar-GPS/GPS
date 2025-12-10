@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
-import { Coordinates, RouteStop } from '../types';
+import { Coordinates, RouteStop, TrackingStatus } from '../types';
 
 declare const L: any;
 
@@ -9,11 +9,12 @@ interface MapVisualizationProps {
   destinationCoordinates?: Coordinates; 
   stops?: RouteStop[]; // Intermediate stops
   userLocation?: Coordinates | null; 
+  status?: TrackingStatus;
   className?: string;
   loading?: boolean;
 }
 
-const MapVisualization: React.FC<MapVisualizationProps> = React.memo(({ coordinates, destinationCoordinates, stops, userLocation, className, loading }) => {
+const MapVisualization: React.FC<MapVisualizationProps> = React.memo(({ coordinates, destinationCoordinates, stops, userLocation, status, className, loading }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -73,13 +74,17 @@ const MapVisualization: React.FC<MapVisualizationProps> = React.memo(({ coordina
 
     // 1. CARGO MARKER (Start of Line)
     if (coordinates) {
+        // VISUAL ALERT FOR STOPPED STATUS
+        const isStopped = status === TrackingStatus.STOPPED;
+        
         const cargoIcon = L.divIcon({
             className: 'custom-div-icon',
             html: `<div class="relative flex items-center justify-center w-10 h-10">
-                     <div class="relative w-6 h-6 bg-rodovar-yellow border-2 border-black rounded-full shadow-xl z-10 flex items-center justify-center">
+                     ${isStopped ? '<div class="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-red-600 text-white text-[8px] font-bold px-1 rounded animate-bounce border border-white">PARADO</div>' : ''}
+                     <div class="relative w-6 h-6 ${isStopped ? 'bg-red-600' : 'bg-rodovar-yellow'} border-2 border-black rounded-full shadow-xl z-10 flex items-center justify-center">
                         <div class="w-2 h-2 bg-black rounded-full"></div>
                      </div>
-                     <div class="absolute w-full h-full bg-rodovar-yellow/30 rounded-full animate-ping opacity-75"></div>
+                     <div class="absolute w-full h-full ${isStopped ? 'bg-red-600/50' : 'bg-rodovar-yellow/30'} rounded-full animate-ping opacity-75"></div>
                    </div>`,
             iconSize: [40, 40],
             iconAnchor: [20, 20]
@@ -87,7 +92,7 @@ const MapVisualization: React.FC<MapVisualizationProps> = React.memo(({ coordina
 
         const cargoMarker = L.marker([coordinates.lat, coordinates.lng], { icon: cargoIcon })
             .addTo(map)
-            .bindPopup("<b>CAMINHÃO</b>");
+            .bindPopup(isStopped ? "<b>ALERTA: VEÍCULO PARADO</b>" : "<b>CAMINHÃO</b>");
 
         markersRef.current.push(cargoMarker);
         bounds.extend([coordinates.lat, coordinates.lng]);
@@ -162,7 +167,7 @@ const MapVisualization: React.FC<MapVisualizationProps> = React.memo(({ coordina
         map.setView([-14.2350, -51.9253], 4);
     }
 
-  }, [coordinates, userLocation, destinationCoordinates, stops]);
+  }, [coordinates, userLocation, destinationCoordinates, stops, status]);
 
   return (
     <div className={`relative bg-gray-100 rounded-xl overflow-hidden border border-gray-700 shadow-2xl ${className}`}>

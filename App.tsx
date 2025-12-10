@@ -484,6 +484,7 @@ const App: React.FC = () => {
                     destinationCoordinates={trackingData?.destinationCoordinates} 
                     stops={trackingData?.stops}
                     userLocation={userLocation}
+                    status={trackingData?.status}
                     className="h-full w-full"
                  />
             </div>
