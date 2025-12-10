@@ -319,50 +319,80 @@ const App: React.FC = () => {
 
                         {/* DIGITAL PROOF OF DELIVERY CARD (IF DELIVERED) */}
                         {trackingData.status === TrackingStatus.DELIVERED && trackingData.proof && (
-                             <div className="mb-8 bg-white text-black rounded-xl p-4 shadow-lg border-l-8 border-green-500 relative overflow-hidden">
-                                  <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] px-3 py-1 rounded-bl font-bold uppercase">
-                                      Canhoto Digital Verificado
-                                  </div>
-                                  <div className="flex items-center gap-2 mb-4">
-                                      <DocumentCheckIcon className="w-6 h-6 text-green-600" />
-                                      <h3 className="text-lg font-bold uppercase tracking-tighter">Comprovante de Entrega Digital</h3>
-                                  </div>
-                                  
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div className="space-y-2">
-                                          <div>
-                                              <p className="text-[10px] text-gray-500 uppercase font-bold">Recebido Por</p>
-                                              <p className="font-bold text-sm">{trackingData.proof.receiverName}</p>
-                                              <p className="text-xs text-gray-600">Doc: {trackingData.proof.receiverDoc}</p>
+                             <div className="mb-8">
+                                <div id="proof-of-delivery-card" className="bg-white text-black rounded-lg shadow-xl overflow-hidden mx-auto max-w-[600px] border border-gray-200">
+                                      {/* Header with Green Strip */}
+                                      <div className="bg-[#22c55e] text-white p-3 flex justify-between items-center">
+                                          <div className="flex items-center gap-2">
+                                              <DocumentCheckIcon className="w-5 h-5 text-white" />
+                                              <h3 className="text-sm font-bold uppercase tracking-wide">Comprovante de Entrega Digital</h3>
                                           </div>
-                                          <div>
-                                              <p className="text-[10px] text-gray-500 uppercase font-bold">Data da Entrega</p>
-                                              <p className="text-xs">{new Date(trackingData.proof.timestamp).toLocaleString()}</p>
+                                          <div className="bg-white text-[#22c55e] text-[10px] px-2 py-0.5 rounded font-bold uppercase">
+                                              Canhoto Digital Verificado
                                           </div>
-                                          <div>
-                                              <p className="text-[10px] text-gray-500 uppercase font-bold">Local Validade (GPS)</p>
-                                              <a 
-                                                href={`https://www.google.com/maps?q=${trackingData.proof.location.lat},${trackingData.proof.location.lng}`} 
-                                                target="_blank" 
-                                                className="text-xs text-blue-600 underline flex items-center gap-1"
-                                              >
-                                                  <MapPinIcon className="w-3 h-3" /> Ver no Mapa
-                                              </a>
+                                      </div>
+                                      
+                                      {/* Company Info Header */}
+                                      <div className="bg-gray-50 border-b border-gray-200 p-4 flex justify-between items-center">
+                                          <div className="flex items-center gap-2">
+                                              {companySettings.logoUrl ? (
+                                                  <img src={companySettings.logoUrl} className="h-8 w-auto" alt="Logo" />
+                                              ) : (
+                                                  <div className="bg-black text-white p-1 rounded"><TruckIcon className="w-4 h-4"/></div>
+                                              )}
+                                              <div>
+                                                  <p className="font-bold text-sm uppercase leading-tight">{companySettings.name}</p>
+                                                  <p className="text-[9px] text-gray-500 uppercase">{companySettings.slogan}</p>
+                                              </div>
+                                          </div>
+                                          <div className="text-right">
+                                              <p className="text-[9px] text-gray-500 uppercase">Código da Carga</p>
+                                              <p className="text-lg font-mono font-bold tracking-tighter text-black">{trackingData.code}</p>
                                           </div>
                                       </div>
 
-                                      <div className="flex flex-col gap-2">
-                                          <div className="border border-gray-300 rounded bg-gray-50 p-2">
-                                              <p className="text-[9px] text-gray-400 uppercase text-center mb-1">Assinatura Digital</p>
-                                              <img src={trackingData.proof.signatureBase64} className="h-12 w-full object-contain mix-blend-multiply" alt="Assinatura" />
-                                          </div>
-                                          {trackingData.proof.photoBase64 && (
-                                              <div className="border border-gray-300 rounded overflow-hidden h-24">
-                                                  <img src={trackingData.proof.photoBase64} className="w-full h-full object-cover" alt="Foto da Entrega" />
+                                      {/* Content Grid */}
+                                      <div className="p-4 grid grid-cols-2 gap-4">
+                                          {/* Left Column: Info */}
+                                          <div className="space-y-4 border-r border-gray-100 pr-2">
+                                              <div>
+                                                  <p className="text-[9px] text-gray-400 uppercase font-bold mb-0.5">Recebido Por</p>
+                                                  <p className="font-bold text-sm text-black leading-tight">{trackingData.proof.receiverName}</p>
+                                                  <p className="text-[10px] text-gray-600">Doc: {trackingData.proof.receiverDoc}</p>
                                               </div>
-                                          )}
+                                              <div>
+                                                  <p className="text-[9px] text-gray-400 uppercase font-bold mb-0.5">Data da Entrega</p>
+                                                  <p className="text-xs text-black font-medium">{new Date(trackingData.proof.timestamp).toLocaleString('pt-BR')}</p>
+                                              </div>
+                                              <div>
+                                                  <p className="text-[9px] text-gray-400 uppercase font-bold mb-0.5">Local Validade (GPS)</p>
+                                                  <div className="text-[10px] text-blue-600 flex items-center gap-1 font-mono">
+                                                      <MapPinIcon className="w-3 h-3" /> 
+                                                      {trackingData.proof.location.lat.toFixed(5)}, {trackingData.proof.location.lng.toFixed(5)}
+                                                  </div>
+                                              </div>
+                                          </div>
+
+                                          {/* Right Column: Evidence */}
+                                          <div className="flex flex-col gap-3">
+                                              <div className="border border-gray-200 rounded-md bg-gray-50 p-2 text-center h-24 flex flex-col justify-center">
+                                                  <p className="text-[8px] text-gray-400 uppercase mb-1">Assinatura Digital</p>
+                                                  <img src={trackingData.proof.signatureBase64} className="h-full w-full object-contain mix-blend-multiply" alt="Assinatura" />
+                                              </div>
+                                              {trackingData.proof.photoBase64 && (
+                                                  <div className="border border-gray-200 rounded-md overflow-hidden h-24 relative bg-black">
+                                                      <img src={trackingData.proof.photoBase64} className="w-full h-full object-cover opacity-90" alt="Foto da Entrega" />
+                                                      <div className="absolute bottom-0 left-0 w-full bg-black/50 text-white text-[8px] p-0.5 text-center">Foto Local</div>
+                                                  </div>
+                                              )}
+                                          </div>
                                       </div>
-                                  </div>
+                                      
+                                      {/* Footer */}
+                                      <div className="bg-gray-100 p-2 text-center border-t border-gray-200">
+                                          <p className="text-[8px] text-gray-400 uppercase tracking-widest">Documento gerado eletronicamente em {new Date().toLocaleDateString()}</p>
+                                      </div>
+                                 </div>
                              </div>
                         )}
 

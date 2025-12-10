@@ -438,6 +438,18 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                const freshShipment = await getShipment(currentCode);
                if (!freshShipment) return reject("Erro sync");
                
+               // REAL-TIME DISTANCE CALCULATION TO UPDATE UI INSTANTLY
+               if (freshShipment.destinationCoordinates && 
+                   (freshShipment.destinationCoordinates.lat !== 0 || freshShipment.destinationCoordinates.lng !== 0)) {
+                   const dist = getDistanceFromLatLonInKm(
+                       latitude,
+                       longitude,
+                       freshShipment.destinationCoordinates.lat,
+                       freshShipment.destinationCoordinates.lng
+                   );
+                   setRemainingDistanceKm(dist);
+               }
+
                const updated = { ...freshShipment, currentLocation: { ...freshShipment.currentLocation, coordinates: currentCoords }, lastUpdate: getNowFormatted() };
                if (navigator.onLine) await saveShipment(updated);
                else localStorage.setItem(`rodovar_offline_queue_${currentCode}`, JSON.stringify(updated));
@@ -472,8 +484,8 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
       
       if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
       
-      // Update Frequency: 10 seconds
-      trackingIntervalRef.current = window.setInterval(() => performUpdate(false, true), 10000);
+      // Update Frequency: 5 seconds (FASTER UPDATES)
+      trackingIntervalRef.current = window.setInterval(() => performUpdate(false, true), 5000);
       
       if(!silentRestore) {
           sendWhatsAppUpdate('start');
@@ -554,11 +566,11 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                           `_O envio de dados foi interrompido pelo motorista._`;
                 break;
             case 'finish':
-                message = `✅ *ENTREGA REALIZADA COM SUCESSO*\n\n` +
+                message = `Corrida finalizada\n\n` +
                           `📦 *Carga:* ${loadCode}\n` +
                           `👤 *Motorista:* ${driverName}\n` +
-                          `📍 *Local:* ${mapsLink}\n` +
-                          `📝 _Comprovante digital e assinatura coletados._`;
+                          `📍 *Local de Baixa:* ${mapsLink}\n\n` +
+                          `✅ _Entrega realizada com sucesso._`;
                 break;
             default:
                 message = `🔔 *Atualização de Status*\nCarga: ${loadCode}\nStatus: ${type}`;
