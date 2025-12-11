@@ -1,4 +1,5 @@
 
+
 export enum TrackingStatus {
   PENDING = 'PENDING',
   IN_TRANSIT = 'IN_TRANSIT',
@@ -121,6 +122,7 @@ export type UserRole = 'MASTER' | 'BASIC';
 
 export interface AdminUser {
   username: string;
-  password: string;
+  email?: string; // Added for secure auth
+  password?: string; // Optional now, handled by Supabase Auth
   role: UserRole; // Nível de acesso
 }

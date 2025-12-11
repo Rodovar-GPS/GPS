@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { validateLogin } from '../services/storageService';
+import { authService } from '../services/authService';
 
 interface LoginPanelProps {
   onLoginSuccess: (username: string) => void;
@@ -7,7 +8,7 @@ interface LoginPanelProps {
 }
 
 const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onCancel }) => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,12 +16,26 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onCancel }) => 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
+
     try {
-        const isValid = await validateLogin({ username, password });
-        if (isValid) {
-          onLoginSuccess(username);
-        } else {
-          setError('Usuário ou senha incorretos.');
+        // Tenta logar via Supabase Auth
+        // Nota: Para facilitar a migração, se o usuário digitar apenas "admin", 
+        // tentamos "admin@rodovar.com" automaticamente.
+        let emailToUse = email.trim();
+        if (!emailToUse.includes('@')) {
+            emailToUse = `${emailToUse}@rodovar.com`;
+        }
+
+        const { user, error } = await authService.signIn(emailToUse, password);
+        
+        if (error) {
+           console.error(error);
+           setError('Email ou senha incorretos.');
+        } else if (user) {
+           // Login sucesso
+           const displayUser = user.email ? user.email.split('@')[0] : 'Admin';
+           onLoginSuccess(displayUser);
         }
     } catch (err) {
         setError('Erro ao conectar ao sistema.');
@@ -40,19 +55,19 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onCancel }) => 
         </button>
         
         <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-rodovar-white">Acesso Restrito</h2>
-            <p className="text-gray-400 text-sm mt-1">Entre com suas credenciais administrativas</p>
+            <h2 className="text-2xl font-bold text-rodovar-white">Acesso Corporativo Seguro</h2>
+            <p className="text-gray-400 text-sm mt-1">Entre com suas credenciais (SSO/Email)</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-xs text-rodovar-yellow uppercase font-bold mb-2">Usuário</label>
+            <label className="block text-xs text-rodovar-yellow uppercase font-bold mb-2">Email Corporativo</label>
             <input 
               type="text" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-rodovar-black border border-gray-600 rounded-lg p-3 text-rodovar-white focus:border-rodovar-yellow focus:ring-1 focus:ring-rodovar-yellow outline-none transition-all"
-              placeholder="Digite seu usuário"
+              placeholder="ex: admin@rodovar.com"
             />
           </div>
 
@@ -63,12 +78,12 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onCancel }) => 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-rodovar-black border border-gray-600 rounded-lg p-3 text-rodovar-white focus:border-rodovar-yellow focus:ring-1 focus:ring-rodovar-yellow outline-none transition-all"
-              placeholder="Digite sua senha"
+              placeholder="••••••"
             />
           </div>
 
           {error && (
-            <div className="text-red-500 text-sm text-center font-bold bg-red-900/20 py-2 rounded">
+            <div className="text-red-500 text-sm text-center font-bold bg-red-900/20 py-2 rounded border border-red-500/30">
               {error}
             </div>
           )}
@@ -76,10 +91,17 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onCancel }) => 
           <button 
             type="submit"
             disabled={loading}
-            className="w-full bg-rodovar-yellow text-black font-bold py-3 rounded-lg hover:bg-yellow-400 transition-colors shadow-[0_0_10px_rgba(255,215,0,0.2)] disabled:opacity-50"
+            className="w-full bg-rodovar-yellow text-black font-bold py-3 rounded-lg hover:bg-yellow-400 transition-colors shadow-[0_0_10px_rgba(255,215,0,0.2)] disabled:opacity-50 uppercase tracking-widest"
           >
-            {loading ? 'VERIFICANDO...' : 'ENTRAR NO SISTEMA'}
+            {loading ? 'AUTENTICANDO...' : 'ACESSAR SISTEMA'}
           </button>
+          
+          <div className="text-center mt-4">
+              <p className="text-[10px] text-gray-500">
+                  Protegido por Supabase Security. <br/>
+                  Se não tiver conta, contate o administrador Master.
+              </p>
+          </div>
         </form>
       </div>
     </div>
