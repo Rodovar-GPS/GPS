@@ -1,5 +1,5 @@
 
-import { TrackingData, Coordinates, AdminUser, Driver, CompanySettings, RouteStop, ProofOfDelivery } from '../types';
+import { TrackingData, Coordinates, AdminUser, Driver, CompanySettings, RouteStop, ProofOfDelivery, TrackingStatus } from '../types';
 import { supabase } from './supabaseClient';
 
 // --- CONFIGURAÇÃO ---
@@ -43,26 +43,22 @@ export const getCompanySettings = async (): Promise<CompanySettings> => {
 };
 
 export const saveCompanySettings = async (settings: CompanySettings): Promise<void> => {
-    // Requires secure context ideally
     if (supabase) await supabase.from('users').upsert({ username: 'GLOBAL_SETTINGS', data: settings });
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 };
 
-// --- USER & AUTH SERVICE (DB ONLY - NO LOGIN LOGIC HERE) ---
+// --- USER & AUTH SERVICE ---
 const initUsers = () => {
   const users = localStorage.getItem(USERS_KEY);
   if (!users) {
-    // Placeholder para modo offline, mas Auth real é via Supabase
     const defaultUser: AdminUser = { username: 'admin', email: 'admin@rodovar.com', role: 'MASTER' };
     localStorage.setItem(USERS_KEY, JSON.stringify([defaultUser]));
   }
 };
 
-// Retorna lista de usuários do banco público (para gerenciamento de permissões)
 export const getAllUsers = async (): Promise<AdminUser[]> => {
   if (supabase) {
       try {
-          // Nota: Não retornamos senhas aqui, a autenticação é via Supabase Auth
           const { data, error } = await supabase.from('users').select('*').neq('username', 'GLOBAL_SETTINGS');
           if (!error && data) return data.map((row: any) => row.data);
       } catch (e) {}
@@ -73,10 +69,6 @@ export const getAllUsers = async (): Promise<AdminUser[]> => {
 };
 
 export const saveUser = async (user: AdminUser): Promise<boolean> => {
-  // Nota: Isso salva os metadados do usuário (Role, Nome) na tabela publica.
-  // A criação do usuário de Login (Auth) deve ser feita separadamente via supabase.auth.signUp
-  // ou manualmente no dashboard.
-  
   if (supabase) await supabase.from('users').upsert({ username: user.username, data: user });
   
   const users = await getAllUsers();
@@ -99,8 +91,13 @@ export const getAllDrivers = async (): Promise<Driver[]> => {
   if (supabase) {
       try {
         const { data, error } = await supabase.from('drivers').select('*');
-        if (!error && data) return data.map((row: any) => row.data);
-      } catch (e) {}
+        if (!error && data) {
+            // Garante que retorna um array válido mesmo se vazio
+            return data.map((row: any) => row.data);
+        }
+      } catch (e) {
+          console.error("Erro ao buscar motoristas:", e);
+      }
   }
   const drivers = localStorage.getItem(DRIVERS_KEY);
   return drivers ? JSON.parse(drivers) : [];
@@ -108,19 +105,22 @@ export const getAllDrivers = async (): Promise<Driver[]> => {
 
 export const saveDriver = async (driver: Driver): Promise<boolean> => {
   const drivers = await getAllDrivers();
-  const index = drivers.findIndex(d => d.id === driver.id);
-  
-  // Check duplicate name if creating new
-  if (index === -1 && drivers.some(d => d.name.toLowerCase() === driver.name.toLowerCase())) {
-     return false;
+  // Check duplicate name if creating new ID
+  const existing = drivers.find(d => d.id === driver.id);
+  if (!existing && drivers.some(d => d.name.toLowerCase() === driver.name.toLowerCase())) {
+     // Permite salvar se for o mesmo ID (update), bloqueia se for novo ID com nome igual
+     return false; 
   }
 
-  if (supabase) await supabase.from('drivers').upsert({ id: driver.id, data: driver });
+  if (supabase) {
+      const { error } = await supabase.from('drivers').upsert({ id: driver.id, data: driver });
+      if (error) console.error("Erro ao salvar motorista no Supabase:", error);
+  }
   
-  if (index >= 0) drivers[index] = driver;
-  else drivers.push(driver);
-  
-  localStorage.setItem(DRIVERS_KEY, JSON.stringify(drivers));
+  // Atualiza cache local
+  const newDrivers = drivers.filter(d => d.id !== driver.id);
+  newDrivers.push(driver);
+  localStorage.setItem(DRIVERS_KEY, JSON.stringify(newDrivers));
   return true;
 };
 
@@ -131,7 +131,6 @@ export const deleteDriver = async (id: string): Promise<void> => {
   localStorage.setItem(DRIVERS_KEY, JSON.stringify(drivers));
 };
 
-// --- MAINTENANCE LOGIC ---
 export const checkFleetMaintenance = async (): Promise<string[]> => {
     const drivers = await getAllDrivers();
     const alerts: string[] = [];
@@ -187,19 +186,14 @@ export function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: numb
 
 function deg2rad(deg: number) { return deg * (Math.PI / 180); }
 
-// --- ROTEIRIZADOR INTELIGENTE (NEAREST NEIGHBOR) ---
 export const optimizeRoute = (origin: Coordinates, stops: RouteStop[]): RouteStop[] => {
     if (stops.length <= 1) return stops;
-
     const optimized: RouteStop[] = [];
     let currentPos = origin;
     const remaining = [...stops];
-
     while (remaining.length > 0) {
         let nearestIdx = 0;
         let minDist = Infinity;
-
-        // Encontra o ponto mais próximo da posição atual
         remaining.forEach((stop, idx) => {
             const dist = getDistanceFromLatLonInKm(currentPos.lat, currentPos.lng, stop.coordinates.lat, stop.coordinates.lng);
             if (dist < minDist) {
@@ -207,16 +201,12 @@ export const optimizeRoute = (origin: Coordinates, stops: RouteStop[]): RouteSto
                 nearestIdx = idx;
             }
         });
-
         const nextStop = remaining.splice(nearestIdx, 1)[0];
         optimized.push(nextStop);
         currentPos = nextStop.coordinates;
     }
-
-    // Reindexar a ordem visualmente
     return optimized.map((s, i) => ({...s, order: i + 1}));
 };
-
 
 export const calculateProgress = (origin: Coordinates, destination: Coordinates, current: Coordinates): number => {
     if ((origin.lat === 0 && origin.lng === 0) || (destination.lat === 0 && destination.lng === 0)) return 0;
@@ -255,11 +245,9 @@ export const saveShipment = async (data: TrackingData): Promise<void> => {
   if (!data.company) data.company = 'RODOVAR';
 
   if (supabase) {
-      // Upsert: Isso funcionará apenas se a política RLS permitir
       await supabase.from('shipments').upsert({ code: data.code, data: data });
   }
   
-  // Local backup for offline capability
   const localRaw = localStorage.getItem(STORAGE_KEY);
   const localData = localRaw ? JSON.parse(localRaw) : {};
   const updatedData = { ...localData, [data.code]: data };
@@ -313,13 +301,176 @@ export const deleteShipment = async (code: string): Promise<void> => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
 };
 
-// --- DEMO DATA POPULATION ---
+// --- DATA POPULATION (TEST SCENARIOS) ---
 export const populateDemoData = async () => {
-    const hasData = localStorage.getItem(STORAGE_KEY);
-    // Only populate if completely empty and no Supabase connection or empty Supabase
-    if (hasData) return; 
+    console.log("🛠️ Verificando dados de teste...");
 
-    console.log("Creating Demo Data...");
-    // ... (Mantendo a lógica existente de demo para primeiro uso offline)
-    // Código de demo data permanece igual, omitido aqui para brevidade pois não muda a lógica de segurança.
+    // 1. DEFINIÇÃO DOS DADOS DE TESTE (CENÁRIOS)
+    
+    // Motoristas
+    const demoDrivers: Driver[] = [
+        {
+            id: 'd1',
+            name: 'Carlos Silva',
+            phone: '11999998888',
+            vehiclePlate: 'ABC-1234',
+            currentMileage: 50000,
+            nextMaintenanceMileage: 60000,
+            photoUrl: 'https://randomuser.me/api/portraits/men/32.jpg'
+        },
+        {
+            id: 'd2',
+            name: 'Roberto Otimiza',
+            phone: '41988887777',
+            vehiclePlate: 'ROT-9090',
+            currentMileage: 20000,
+            nextMaintenanceMileage: 30000,
+            photoUrl: 'https://randomuser.me/api/portraits/men/45.jpg'
+        },
+        {
+            id: 'd3',
+            name: 'Fernanda Manut',
+            phone: '21977776666',
+            vehiclePlate: 'MAN-5050',
+            currentMileage: 59600, // Crítico (<500km para 60000)
+            nextMaintenanceMileage: 60000,
+            photoUrl: 'https://randomuser.me/api/portraits/women/44.jpg'
+        },
+        {
+            id: 'd4',
+            name: 'João SOS',
+            phone: '31966665555',
+            vehiclePlate: 'SOS-1900',
+            currentMileage: 10000,
+            nextMaintenanceMileage: 20000,
+            photoUrl: 'https://randomuser.me/api/portraits/men/12.jpg'
+        }
+    ];
+
+    // Cargas
+    const demoShipments: Record<string, TrackingData> = {
+        'RODOVAR1001': {
+            code: 'RODOVAR1001',
+            company: 'RODOVAR',
+            status: TrackingStatus.IN_TRANSIT,
+            currentLocation: { city: 'Resende', state: 'RJ', address: 'Rodovia Dutra', coordinates: { lat: -22.4704, lng: -44.4519 } },
+            origin: 'São Paulo',
+            destination: 'Rio de Janeiro',
+            destinationCoordinates: { lat: -22.9068, lng: -43.1729 },
+            driverId: 'd1',
+            driverName: 'Carlos Silva',
+            driverPhoto: 'https://randomuser.me/api/portraits/men/32.jpg',
+            lastUpdate: 'Agora',
+            estimatedDelivery: '25/12/2024',
+            message: 'Caminho Feliz: Em trânsito normal.',
+            progress: 60,
+            isLive: true
+        },
+        'RODOVAR2002': {
+            code: 'RODOVAR2002',
+            company: 'AXD',
+            status: TrackingStatus.PENDING,
+            currentLocation: { city: 'Curitiba', state: 'PR', coordinates: { lat: -25.4284, lng: -49.2733 } },
+            origin: 'Curitiba',
+            destination: 'Florianópolis',
+            destinationCoordinates: { lat: -27.5954, lng: -48.5480 },
+            stops: [
+                { id: 's1', city: 'Joinville', address: 'Centro', completed: false, order: 2, coordinates: { lat: -26.3044, lng: -48.8464 } },
+                { id: 's2', city: 'São José dos Pinhais', address: 'Aeroporto', completed: false, order: 1, coordinates: { lat: -25.5302, lng: -49.2030 } }
+            ],
+            driverId: 'd2',
+            driverName: 'Roberto Otimiza',
+            lastUpdate: 'Hoje',
+            estimatedDelivery: '30/12/2024',
+            message: 'Rota Complexa: Paradas otimizadas.',
+            progress: 0
+        },
+        'RODOVAR3003': {
+            code: 'RODOVAR3003',
+            company: 'RODOVAR',
+            status: TrackingStatus.IN_TRANSIT,
+            currentLocation: { city: 'Campinas', state: 'SP', coordinates: { lat: -22.9099, lng: -47.0626 } },
+            origin: 'Campinas',
+            destination: 'Santos',
+            destinationCoordinates: { lat: -23.9618, lng: -46.3322 },
+            driverId: 'd3',
+            driverName: 'Fernanda Manut',
+            lastUpdate: 'Há 1 hora',
+            estimatedDelivery: 'Amanhã',
+            message: 'Alerta de Manutenção: Veículo próximo da revisão.',
+            progress: 10
+        },
+        'RODOVAR4004': {
+            code: 'RODOVAR4004',
+            company: 'RODOVAR',
+            status: TrackingStatus.STOPPED,
+            currentLocation: { city: 'Belo Horizonte', state: 'MG', coordinates: { lat: -19.9167, lng: -43.9345 } },
+            origin: 'Betim',
+            destination: 'Vitória',
+            destinationCoordinates: { lat: -20.3155, lng: -40.3128 },
+            driverId: 'd4',
+            driverName: 'João SOS',
+            lastUpdate: 'Agora mesmo',
+            estimatedDelivery: '--',
+            message: 'SOS: Veículo parado por problema mecânico.',
+            progress: 20,
+            isLive: true
+        },
+        'RODOVAR5005': {
+            code: 'RODOVAR5005',
+            company: 'RODOVAR',
+            status: TrackingStatus.DELIVERED,
+            currentLocation: { city: 'Salvador', state: 'BA', coordinates: { lat: -12.9777, lng: -38.5016 } },
+            origin: 'Feira de Santana',
+            destination: 'Salvador',
+            destinationCoordinates: { lat: -12.9777, lng: -38.5016 },
+            lastUpdate: 'Ontem',
+            estimatedDelivery: 'Finalizado',
+            message: 'Entrega Realizada com Sucesso.',
+            progress: 100,
+            proof: {
+                receiverName: 'Empresa Teste LTDA',
+                receiverDoc: '00.000.000/0001-99',
+                signatureBase64: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', // Pixel transparente placeholder
+                timestamp: new Date().toISOString(),
+                location: { lat: -12.9777, lng: -38.5016 }
+            }
+        }
+    };
+
+    // 2. POPULAR LOCALSTORAGE (SEMPRE GARANTIR DADOS LOCAIS)
+    const storedDrivers = localStorage.getItem(DRIVERS_KEY);
+    if (!storedDrivers || JSON.parse(storedDrivers).length === 0) {
+        localStorage.setItem(DRIVERS_KEY, JSON.stringify(demoDrivers));
+    }
+    
+    const storedShipments = localStorage.getItem(STORAGE_KEY);
+    if (!storedShipments || Object.keys(JSON.parse(storedShipments)).length === 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(demoShipments));
+    }
+
+    // 3. POPULAR SUPABASE (SE CONECTADO E VAZIO)
+    if (supabase) {
+        try {
+            // Verifica Motoristas
+            const { data: driversData, error: dErr } = await supabase.from('drivers').select('id');
+            if (!dErr && (!driversData || driversData.length === 0)) {
+                console.log("☁️ Supabase vazio (Motoristas). Inserindo Demo Data...");
+                for (const d of demoDrivers) {
+                    await supabase.from('drivers').upsert({ id: d.id, data: d });
+                }
+            }
+
+            // Verifica Cargas
+            const { data: shipData, error: sErr } = await supabase.from('shipments').select('code');
+            if (!sErr && (!shipData || shipData.length === 0)) {
+                console.log("☁️ Supabase vazio (Cargas). Inserindo Demo Data...");
+                for (const s of Object.values(demoShipments)) {
+                    await supabase.from('shipments').upsert({ code: s.code, data: s });
+                }
+            }
+        } catch (e) {
+            console.error("Erro ao popular Supabase:", e);
+        }
+    }
 };
