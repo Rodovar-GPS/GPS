@@ -523,10 +523,8 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
        const s = shipmentRef.current;
        if (!s) return;
 
-       const lat = s.currentLocation?.coordinates?.lat || 0;
-       const lng = s.currentLocation?.coordinates?.lng || 0;
-       const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
-       
+       const baseUrl = window.location.origin;
+       const magicLink = `${baseUrl}/?track=${s.code}`;
        const driverName = s.driverName || 'Motorista';
        const loadCode = s.code;
 
@@ -537,7 +535,7 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                 message = `⚠️ *SOS - SOLICITAÇÃO DE AJUDA URGENTE* ⚠️\n\n` +
                           `👤 *Motorista:* ${driverName}\n` +
                           `📦 *Carga:* ${loadCode}\n` +
-                          `📍 *Localização:* ${mapsLink}\n\n` +
+                          `🔗 *Rastrear:* ${magicLink}\n\n` +
                           `_Solicito suporte imediato._`;
                 break;
             case 'update':
@@ -545,14 +543,14 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                           `👤 *Motorista:* ${driverName}\n` +
                           `📦 *Carga:* ${loadCode}\n` +
                           `🏙️ *Local:* ${s.currentLocation.city} - ${s.currentLocation.state}\n` +
-                          `🗺️ *Ver no Mapa:* ${mapsLink}`;
+                          `🔗 *Ver no App:* ${magicLink}`;
                 break;
             case 'start':
                 message = `🚚 *INÍCIO DE VIAGEM*\n\n` +
                           `👤 *Motorista:* ${driverName}\n` +
                           `📦 *Carga:* ${loadCode}\n` +
                           `🚩 *Rota:* ${s.origin} ➔ ${s.destination}\n` +
-                          `🟢 _Rastreamento via satélite ativado._`;
+                          `🔗 *Acompanhe Online:* ${magicLink}`;
                 break;
             case 'stop':
                 message = `🛑 *RASTREAMENTO PAUSADO*\n\n` +
@@ -564,11 +562,11 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                 message = `Corrida finalizada\n\n` +
                           `📦 *Carga:* ${loadCode}\n` +
                           `👤 *Motorista:* ${driverName}\n` +
-                          `📍 *Local de Baixa:* ${mapsLink}\n\n` +
+                          `🔗 *Ver Comprovante:* ${magicLink}\n\n` +
                           `✅ _Entrega realizada com sucesso._`;
                 break;
             default:
-                message = `🔔 *Atualização de Status*\nCarga: ${loadCode}\nStatus: ${type}`;
+                message = `🔔 *Atualização de Status*\nCarga: ${loadCode}\nStatus: ${type}\nLink: ${magicLink}`;
        }
 
        const url = `https://wa.me/${MANAGER_PHONE}?text=${encodeURIComponent(message)}`;

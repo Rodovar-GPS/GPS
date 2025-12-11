@@ -8,7 +8,7 @@ import {
     getAllDrivers, saveDriver, deleteDriver, generateUniqueCode,
     getCompanySettings, saveCompanySettings, checkFleetMaintenance, optimizeRoute
 } from '../services/storageService';
-import { TruckIcon, MapPinIcon, SearchIcon, SteeringWheelIcon, WhatsAppIcon, CameraIcon, UploadIcon, UserIcon, TrashIcon, CheckCircleIcon, ClockIcon, CalendarIcon, ChartBarIcon, PencilIcon, EyeIcon, EyeSlashIcon } from './Icons';
+import { TruckIcon, MapPinIcon, SearchIcon, SteeringWheelIcon, WhatsAppIcon, CameraIcon, UploadIcon, UserIcon, TrashIcon, CheckCircleIcon, ClockIcon, CalendarIcon, ChartBarIcon, PencilIcon, EyeIcon, EyeSlashIcon, DocumentCheckIcon, DownloadIcon } from './Icons';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -145,6 +145,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
   const [historySearch, setHistorySearch] = useState('');
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'ALL' | 'DELIVERED' | 'TRANSIT'>('ALL');
 
+  // --- PROOF VIEW MODAL STATE ---
+  const [viewingProofShipment, setViewingProofShipment] = useState<TrackingData | null>(null);
 
   useEffect(() => {
     loadShipments();
@@ -409,6 +411,41 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
       await loadShipments();
       if (code === codeToDelete) resetForm();
     }
+  };
+
+  const handleShareMagicLink = (shipmentCode: string) => {
+      const baseUrl = window.location.origin;
+      const magicLink = `${baseUrl}/?track=${shipmentCode}`;
+      const message = `🚚 *RASTREAMENTO ONLINE ${companyName}*\n\nAcompanhe sua carga em tempo real sem precisar de senha!\n\n🔗 *Clique para rastrear:* ${magicLink}`;
+      const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      window.open(url, '_blank');
+  };
+
+  const handleDownloadProof = async () => {
+      const element = document.getElementById('admin-proof-card');
+      if (!element || !viewingProofShipment) return;
+      
+      const html2canvas = (window as any).html2canvas;
+      if (!html2canvas) {
+          alert("Biblioteca de imagem não encontrada.");
+          return;
+      }
+
+      try {
+          const canvas = await html2canvas(element, {
+              scale: 2, 
+              useCORS: true,
+              backgroundColor: null 
+          });
+
+          const link = document.createElement('a');
+          link.download = `Comprovante-${viewingProofShipment.code}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+      } catch (e) {
+          console.error(e);
+          alert("Erro ao baixar o comprovante.");
+      }
   };
 
   // --- HANDLERS FOR USERS ---
@@ -855,11 +892,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                                            </div>
                                            <h4 className="text-2xl font-black text-white tracking-tighter">{item.code}</h4>
                                        </div>
-                                       <div className="mt-4">
+                                       <div className="mt-4 flex flex-col gap-2">
                                             <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${item.status === TrackingStatus.DELIVERED ? 'bg-green-900/30 border-green-500 text-green-400' : 'bg-blue-900/30 border-blue-500 text-blue-400'}`}>
                                                 {item.status === TrackingStatus.DELIVERED ? <CheckCircleIcon className="w-4 h-4" /> : <ClockIcon className="w-4 h-4" />}
                                                 <span className="text-xs font-bold uppercase">{StatusLabels[item.status]}</span>
                                             </div>
+                                            {item.status === TrackingStatus.DELIVERED && item.proof && (
+                                                <button onClick={() => setViewingProofShipment(item)} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-rodovar-yellow text-rodovar-yellow text-[10px] font-bold uppercase hover:bg-rodovar-yellow hover:text-black transition-colors">
+                                                    <DownloadIcon className="w-3 h-3" />
+                                                    Ver Comprovante
+                                                </button>
+                                            )}
                                        </div>
                                   </div>
 
@@ -952,6 +995,82 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                       <li key={idx} className="text-xs text-white font-bold">{alert}</li>
                   ))}
               </ul>
+          </div>
+      )}
+
+      {/* PROOF OF DELIVERY MODAL */}
+      {viewingProofShipment && viewingProofShipment.proof && (
+          <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+              <div className="bg-rodovar-gray w-full max-w-[640px] rounded-2xl border border-gray-700 shadow-2xl p-6 relative max-h-[95vh] overflow-y-auto">
+                   <button onClick={() => setViewingProofShipment(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white text-2xl">×</button>
+                   <h2 className="text-lg font-bold text-white mb-4 uppercase tracking-widest text-center">Visualizar Comprovante</h2>
+                   
+                   {/* CARD COPY FOR ADMIN */}
+                   <div id="admin-proof-card" className="bg-white text-black rounded-lg shadow-xl overflow-hidden mx-auto border border-gray-200 mb-6">
+                        <div className="bg-[#22c55e] text-white p-3 flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                  <DocumentCheckIcon className="w-5 h-5 text-white" />
+                                  <h3 className="text-sm font-bold uppercase tracking-wide">Comprovante de Entrega Digital</h3>
+                              </div>
+                              <div className="bg-white text-[#22c55e] text-[10px] px-2 py-0.5 rounded font-bold uppercase">
+                                  Canhoto Digital Verificado
+                              </div>
+                          </div>
+                          <div className="bg-gray-50 border-b border-gray-200 p-4 flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                  {companyLogoUrl ? <img src={companyLogoUrl} className="h-8 w-auto" alt="Logo" /> : <div className="bg-black text-white p-1 rounded"><TruckIcon className="w-4 h-4"/></div>}
+                                  <div>
+                                      <p className="font-bold text-sm uppercase leading-tight">{companyName}</p>
+                                      <p className="text-[9px] text-gray-500 uppercase">{companySlogan}</p>
+                                  </div>
+                              </div>
+                              <div className="text-right">
+                                  <p className="text-[9px] text-gray-500 uppercase">Código da Carga</p>
+                                  <p className="text-lg font-mono font-bold tracking-tighter text-black">{viewingProofShipment.code}</p>
+                              </div>
+                          </div>
+                          <div className="p-4 grid grid-cols-2 gap-4">
+                              <div className="space-y-4 border-r border-gray-100 pr-2">
+                                  <div>
+                                      <p className="text-[9px] text-gray-400 uppercase font-bold mb-0.5">Recebido Por</p>
+                                      <p className="font-bold text-sm text-black leading-tight">{viewingProofShipment.proof.receiverName}</p>
+                                      <p className="text-[10px] text-gray-600">Doc: {viewingProofShipment.proof.receiverDoc}</p>
+                                  </div>
+                                  <div>
+                                      <p className="text-[9px] text-gray-400 uppercase font-bold mb-0.5">Data da Entrega</p>
+                                      <p className="text-xs text-black font-medium">{new Date(viewingProofShipment.proof.timestamp).toLocaleString('pt-BR')}</p>
+                                  </div>
+                                  <div>
+                                      <p className="text-[9px] text-gray-400 uppercase font-bold mb-0.5">Local Validade (GPS)</p>
+                                      <div className="text-[10px] text-blue-600 flex items-center gap-1 font-mono">
+                                          <MapPinIcon className="w-3 h-3" /> 
+                                          {viewingProofShipment.proof.location.lat.toFixed(5)}, {viewingProofShipment.proof.location.lng.toFixed(5)}
+                                      </div>
+                                  </div>
+                              </div>
+                              <div className="flex flex-col gap-3">
+                                  <div className="border border-gray-200 rounded-md bg-gray-50 p-2 text-center h-24 flex flex-col justify-center">
+                                      <p className="text-[8px] text-gray-400 uppercase mb-1">Assinatura Digital</p>
+                                      <img src={viewingProofShipment.proof.signatureBase64} className="h-full w-full object-contain mix-blend-multiply" alt="Assinatura" />
+                                  </div>
+                                  {viewingProofShipment.proof.photoBase64 && (
+                                      <div className="border border-gray-200 rounded-md overflow-hidden h-24 relative bg-black">
+                                          <img src={viewingProofShipment.proof.photoBase64} className="w-full h-full object-cover opacity-90" alt="Foto da Entrega" />
+                                          <div className="absolute bottom-0 left-0 w-full bg-black/50 text-white text-[8px] p-0.5 text-center">Foto Local</div>
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                          <div className="bg-gray-100 p-2 text-center border-t border-gray-200">
+                              <p className="text-[8px] text-gray-400 uppercase tracking-widest">Documento gerado eletronicamente em {new Date().toLocaleDateString()}</p>
+                          </div>
+                   </div>
+
+                   <button onClick={handleDownloadProof} className="w-full bg-rodovar-yellow text-black font-bold py-3 rounded-xl uppercase tracking-widest hover:bg-yellow-400 shadow-lg flex items-center justify-center gap-2">
+                       <DownloadIcon className="w-5 h-5" />
+                       Baixar Imagem (PNG)
+                   </button>
+              </div>
           </div>
       )}
 
@@ -1076,6 +1195,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                                     <p>Destino: {s.destination}</p>
                                 </div>
                                 <div className="flex justify-end gap-2 mt-2">
+                                    {/* MAGIC LINK SHARE BUTTON */}
+                                    <button onClick={() => handleShareMagicLink(s.code)} className="text-green-500 text-xs font-bold uppercase px-2 flex items-center gap-1 hover:text-green-400" title="Enviar Link Mágico para Cliente">
+                                        <WhatsAppIcon className="w-3 h-3" /> Link Cliente
+                                    </button>
                                     <button onClick={() => handleEditShipment(s)} className="text-blue-400 text-xs font-bold uppercase px-2">Editar</button>
                                     {isMaster && <button onClick={() => handleDeleteShipment(s.code)} className="text-red-400 text-xs font-bold uppercase px-2">Excluir</button>}
                                 </div>

@@ -67,8 +67,8 @@ export const saveCompanySettings = async (settings: CompanySettings): Promise<vo
 const initUsers = () => {
   const users = localStorage.getItem(USERS_KEY);
   if (!users) {
-    // Default Admin is Master - SENHA ATUALIZADA PARA 'admin'
-    const defaultUser: AdminUser = { username: 'admin', password: 'admin', role: 'MASTER' };
+    // Default Admin is Master - SENHA ATUALIZADA
+    const defaultUser: AdminUser = { username: 'admin', password: 'Danone01#@', role: 'MASTER' };
     localStorage.setItem(USERS_KEY, JSON.stringify([defaultUser]));
   }
 };

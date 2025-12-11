@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { fetchTrackingInfo } from './services/geminiService';
 import { TrackingData, TrackingStatus, Coordinates, UserAddress, StatusLabels, CompanySettings } from './types';
-import { TruckIcon, SearchIcon, MapPinIcon, WhatsAppIcon, SteeringWheelIcon, MicrophoneIcon, MicrophoneOffIcon, UserIcon, CheckCircleIcon, DocumentCheckIcon } from './components/Icons';
+import { TruckIcon, SearchIcon, MapPinIcon, WhatsAppIcon, SteeringWheelIcon, MicrophoneIcon, MicrophoneOffIcon, UserIcon, CheckCircleIcon, DocumentCheckIcon, DownloadIcon } from './components/Icons';
 import MapVisualization from './components/MapVisualization';
 import AdminPanel from './components/AdminPanel';
 import LoginPanel from './components/LoginPanel';
@@ -38,6 +38,21 @@ const App: React.FC = () => {
   const [locationLoading, setLocationLoading] = useState(true);
 
   const [isListening, setIsListening] = useState(false);
+
+  // --- MAGIC LINK LOGIC ---
+  // Verifica se existe um código na URL ao carregar a página
+  useEffect(() => {
+      const params = new URLSearchParams(window.location.search);
+      const magicCode = params.get('track');
+      if (magicCode) {
+          const cleanCode = magicCode.trim().toUpperCase();
+          setTrackingCode(cleanCode);
+          // Pequeno delay para garantir que a UI carregou antes de buscar
+          setTimeout(() => {
+              handleTrack(undefined, cleanCode);
+          }, 500);
+      }
+  }, []);
 
   useEffect(() => {
       populateDemoData();
@@ -157,6 +172,35 @@ const App: React.FC = () => {
       setLoading(false);
     }
   }, [trackingCode]);
+
+  const handleDownloadProof = async () => {
+      const element = document.getElementById('proof-of-delivery-card');
+      if (!element || !trackingData) return;
+      
+      const html2canvas = (window as any).html2canvas;
+      if (!html2canvas) {
+          alert("Biblioteca de imagem carregando, tente novamente em alguns segundos.");
+          return;
+      }
+
+      try {
+          // Use html2canvas to create a canvas from the DOM element
+          const canvas = await html2canvas(element, {
+              scale: 2, // Higher quality
+              useCORS: true, // Allow images from other domains
+              backgroundColor: null // Transparent background if possible
+          });
+
+          // Create a link to download the image
+          const link = document.createElement('a');
+          link.download = `Comprovante-${trackingData.code}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+      } catch (e) {
+          console.error("Erro ao gerar imagem:", e);
+          alert("Erro ao baixar o comprovante.");
+      }
+  };
 
   // Voice Search Logic (Existing)
   const toggleVoiceSearch = () => {
@@ -319,7 +363,7 @@ const App: React.FC = () => {
 
                         {/* DIGITAL PROOF OF DELIVERY CARD (IF DELIVERED) */}
                         {trackingData.status === TrackingStatus.DELIVERED && trackingData.proof && (
-                             <div className="mb-8">
+                             <div className="mb-8 relative group">
                                 <div id="proof-of-delivery-card" className="bg-white text-black rounded-lg shadow-xl overflow-hidden mx-auto max-w-[600px] border border-gray-200">
                                       {/* Header with Green Strip */}
                                       <div className="bg-[#22c55e] text-white p-3 flex justify-between items-center">
@@ -392,6 +436,13 @@ const App: React.FC = () => {
                                       <div className="bg-gray-100 p-2 text-center border-t border-gray-200">
                                           <p className="text-[8px] text-gray-400 uppercase tracking-widest">Documento gerado eletronicamente em {new Date().toLocaleDateString()}</p>
                                       </div>
+                                 </div>
+
+                                 <div className="flex justify-center mt-3">
+                                     <button onClick={handleDownloadProof} className="bg-rodovar-yellow text-black text-xs font-bold px-4 py-2 rounded-full flex items-center gap-2 hover:bg-yellow-400 shadow-lg transition-transform active:scale-95">
+                                         <DownloadIcon className="w-4 h-4" />
+                                         BAIXAR COMPROVANTE (IMAGEM)
+                                     </button>
                                  </div>
                              </div>
                         )}
