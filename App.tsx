@@ -8,7 +8,6 @@ import AdminPanel from './components/AdminPanel';
 import LoginPanel from './components/LoginPanel';
 import DriverPanel from './components/DriverPanel';
 import { getDistanceFromLatLonInKm, populateDemoData, getCompanySettings } from './services/storageService';
-import { authService } from './services/authService';
 
 type AppView = 'tracking' | 'login' | 'admin' | 'driver';
 
@@ -40,26 +39,15 @@ const App: React.FC = () => {
 
   const [isListening, setIsListening] = useState(false);
 
-  // Check initial Auth Session
-  useEffect(() => {
-    const checkSession = async () => {
-        const user = await authService.getCurrentUser();
-        if (user) {
-             const display = user.email ? user.email.split('@')[0] : 'Admin';
-             setAdminUser(display);
-             // Stay on tracking view initially unless redirected
-        }
-    };
-    checkSession();
-  }, []);
-
   // --- MAGIC LINK LOGIC ---
+  // Verifica se existe um código na URL ao carregar a página
   useEffect(() => {
       const params = new URLSearchParams(window.location.search);
       const magicCode = params.get('track');
       if (magicCode) {
           const cleanCode = magicCode.trim().toUpperCase();
           setTrackingCode(cleanCode);
+          // Pequeno delay para garantir que a UI carregou antes de buscar
           setTimeout(() => {
               handleTrack(undefined, cleanCode);
           }, 500);
@@ -196,11 +184,14 @@ const App: React.FC = () => {
       }
 
       try {
+          // Use html2canvas to create a canvas from the DOM element
           const canvas = await html2canvas(element, {
-              scale: 2, 
-              useCORS: true, 
-              backgroundColor: null 
+              scale: 2, // Higher quality
+              useCORS: true, // Allow images from other domains
+              backgroundColor: null // Transparent background if possible
           });
+
+          // Create a link to download the image
           const link = document.createElement('a');
           link.download = `Comprovante-${trackingData.code}.png`;
           link.href = canvas.toDataURL('image/png');
@@ -211,7 +202,7 @@ const App: React.FC = () => {
       }
   };
 
-  // Voice Search Logic
+  // Voice Search Logic (Existing)
   const toggleVoiceSearch = () => {
     if (isListening) { window.location.reload(); return; }
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -225,7 +216,7 @@ const App: React.FC = () => {
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript.toLowerCase();
       if (transcript.includes('motorista')) { setCurrentView('driver'); return; }
-      if (transcript.includes('admin') || transcript.includes('login') || transcript.includes('entrar')) { setCurrentView('login'); return; }
+      if (transcript.includes('admin') || transcript.includes('login')) { setCurrentView('login'); return; }
       let code = transcript.replace('rastrear', '').replace('buscar', '').replace('código', '').replace('carga', '').trim();
       const cleanCode = code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       if (cleanCode.length >= 3) { setTrackingCode(cleanCode); handleTrack(undefined, cleanCode); }
@@ -255,75 +246,9 @@ const App: React.FC = () => {
     }
   };
 
-  // --- VIEW RENDERING ---
-
-  if (currentView === 'driver') {
-      return (
-        <div className="min-h-screen bg-rodovar-black flex flex-col font-sans text-gray-100">
-            <header className="border-b border-gray-800 bg-rodovar-black/50 backdrop-blur-md sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center">
-                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('tracking')}>
-                        {companySettings.logoUrl ? <img src={companySettings.logoUrl} className="h-10 w-10 md:h-12 md:w-12 object-contain rounded-lg" /> : <div className="bg-rodovar-yellow p-1.5 md:p-2 rounded-lg text-black"><TruckIcon className="w-6 h-6 md:w-8 md:h-8" /></div>}
-                        <div>
-                            <h1 className="text-xl md:text-2xl font-extrabold tracking-tighter text-rodovar-white uppercase">{companySettings.name}</h1>
-                            <p className="text-[8px] md:text-[10px] text-gray-400 uppercase tracking-widest">Acesso do Motorista</p>
-                        </div>
-                    </div>
-                </div>
-            </header>
-            <DriverPanel onClose={() => setCurrentView('tracking')} />
-        </div>
-      );
-  }
-
-  if (currentView === 'login') {
-      return (
-        <div className="min-h-screen bg-rodovar-black flex flex-col font-sans text-gray-100">
-            <header className="border-b border-gray-800 bg-rodovar-black/50 backdrop-blur-md sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center">
-                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('tracking')}>
-                        <div className="bg-rodovar-yellow p-1.5 md:p-2 rounded-lg text-black"><TruckIcon className="w-6 h-6 md:w-8 md:h-8" /></div>
-                        <div>
-                            <h1 className="text-xl md:text-2xl font-extrabold tracking-tighter text-rodovar-white uppercase">{companySettings.name}</h1>
-                            <p className="text-[8px] md:text-[10px] text-gray-400 uppercase tracking-widest">Login Administrativo</p>
-                        </div>
-                    </div>
-                </div>
-            </header>
-            <LoginPanel 
-                onLoginSuccess={(u) => { setAdminUser(u); setCurrentView('admin'); }} 
-                onCancel={() => setCurrentView('tracking')} 
-            />
-        </div>
-      );
-  }
-
-  if (currentView === 'admin') {
-      return (
-        <div className="min-h-screen bg-rodovar-black flex flex-col font-sans text-gray-100">
-             <header className="border-b border-gray-800 bg-rodovar-black/50 backdrop-blur-md sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center">
-                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('tracking')}>
-                        {companySettings.logoUrl ? <img src={companySettings.logoUrl} className="h-10 w-10 md:h-12 md:w-12 object-contain rounded-lg" /> : <div className="bg-rodovar-yellow p-1.5 md:p-2 rounded-lg text-black"><TruckIcon className="w-6 h-6 md:w-8 md:h-8" /></div>}
-                        <div>
-                            <h1 className="text-xl md:text-2xl font-extrabold tracking-tighter text-rodovar-white uppercase">{companySettings.name}</h1>
-                            <p className="text-[8px] md:text-[10px] text-gray-400 uppercase tracking-widest">Área Administrativa ({adminUser})</p>
-                        </div>
-                    </div>
-                </div>
-            </header>
-            <AdminPanel 
-                currentUser={adminUser} 
-                onClose={async () => { 
-                    await authService.signOut(); 
-                    setAdminUser(''); 
-                    setCurrentView('tracking'); 
-                    loadSettings();
-                }} 
-            />
-        </div>
-      );
-  }
+  // Views handling
+  if (currentView === 'driver') return <div className="min-h-screen bg-rodovar-black flex flex-col font-sans text-gray-100"><header className="border-b border-gray-800 bg-rodovar-black/50 backdrop-blur-md sticky top-0 z-50"><div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center"><div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('tracking')}>{companySettings.logoUrl ? <img src={companySettings.logoUrl} className="h-10 w-10 md:h-12 md:w-12 object-contain rounded-lg" /> : <div className="bg-rodovar-yellow p-1.5 md:p-2 rounded-lg text-black"><TruckIcon className="w-6 h-6 md:w-8 md:h-8" /></div>}<div><h1 className="text-xl md:text-2xl font-extrabold tracking-tighter text-rodovar-white uppercase">{companySettings.name}</h1><p className="text-[8px] md:text-[10px] text-gray-400 uppercase tracking-widest">Acesso do Motorista</p></div></div></div></header><DriverPanel onClose={() => setCurrentView('tracking')} /></div>;
+  if (currentView === 'admin' || currentView === 'login') return <div className="min-h-screen bg-rodovar-black flex flex-col font-sans text-gray-100"><header className="border-b border-gray-800 bg-rodovar-black/50 backdrop-blur-md sticky top-0 z-50"><div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center"><div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('tracking')}>{companySettings.logoUrl ? <img src={companySettings.logoUrl} className="h-10 w-10 md:h-12 md:w-12 object-contain rounded-lg" /> : <div className="bg-rodovar-yellow p-1.5 md:p-2 rounded-lg text-black"><TruckIcon className="w-6 h-6 md:w-8 md:h-8" /></div>}<div><h1 className="text-xl md:text-2xl font-extrabold tracking-tighter text-rodovar-white uppercase">{companySettings.name}</h1><p className="text-[8px] md:text-[10px] text-gray-400 uppercase tracking-widest">{currentView === 'login' ? 'Login Administrativo' : `Área Administrativa (${adminUser})`}</p></div></div></div></header>{currentView === 'login' ? <LoginPanel onLoginSuccess={(u) => {setAdminUser(u); setCurrentView('admin');}} onCancel={() => setCurrentView('tracking')} /> : <AdminPanel currentUser={adminUser} onClose={() => {setAdminUser(''); setCurrentView('tracking'); loadSettings();}} />}</div>;
 
   return (
     <div className="min-h-screen bg-rodovar-black flex flex-col font-sans text-rodovar-white selection:bg-rodovar-yellow selection:text-black">
@@ -628,12 +553,7 @@ const App: React.FC = () => {
             <div className="flex justify-center gap-4 mt-4 md:absolute md:bottom-4 md:right-4 md:flex-col md:items-end md:mt-0">
                  <button onClick={() => setCurrentView('driver')} className="text-[10px] text-gray-600 hover:text-rodovar-yellow uppercase tracking-widest">Sou Motorista</button>
                  <span className="text-gray-800 md:hidden">|</span>
-                 {/* Logout if admin user present, else Login */}
-                 {adminUser ? (
-                    <button onClick={async () => { await authService.signOut(); setAdminUser(''); }} className="text-[10px] text-red-500 hover:text-red-400 uppercase tracking-widest">Sair (Admin)</button>
-                 ) : (
-                    <button onClick={() => setCurrentView('login')} className="text-[10px] text-gray-800 hover:text-gray-500 uppercase tracking-widest">Área Restrita</button>
-                 )}
+                <button onClick={() => setCurrentView('login')} className="text-[10px] text-gray-800 hover:text-gray-500 uppercase tracking-widest">Área Restrita</button>
             </div>
         </div>
       </footer>
