@@ -25,10 +25,10 @@ if (supabase) {
     console.log("⚠️ RODOVAR: Modo Offline (LocalStorage).");
 }
 
-const STORAGE_KEY = 'rodovar_shipments_db_v1';
-const USERS_KEY = 'rodovar_users_db_v1';
-const DRIVERS_KEY = 'rodovar_drivers_db_v1';
-const SETTINGS_KEY = 'rodovar_settings_db_v1';
+const STORAGE_KEY = 'rodovar_shipments_db_v2';
+const USERS_KEY = 'rodovar_users_db_v2';
+const DRIVERS_KEY = 'rodovar_drivers_db_v2';
+const SETTINGS_KEY = 'rodovar_settings_db_v2';
 
 // --- DEFAULT SETTINGS ---
 const DEFAULT_SETTINGS: CompanySettings = {
@@ -392,7 +392,7 @@ export const populateDemoData = async () => {
                 receiverName: 'João Ferreira', receiverDoc: '123.456.789-00', timestamp: new Date().toISOString(),
                 location: { lat: -22.9068, lng: -43.1729 },
                 signatureBase64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', // Placeholder
-                photoBase64: 'https://images.unsplash.com/photo-1628135800938-7f283251d7c4?w=400'
+                photoBase64: 'https://placehold.co/600x400/png?text=Entrega+Recebida'
             }
         },
         // 3. RODOVAR: Recife -> Salvador (Longa, Parado)
