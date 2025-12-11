@@ -19,9 +19,9 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onCancel }) => 
     setError('');
 
     try {
-        // Tenta logar via Supabase Auth
-        // Nota: Para facilitar a migração, se o usuário digitar apenas "admin", 
-        // tentamos "admin@rodovar.com" automaticamente.
+        // Lógica de Login:
+        // Se o usuário digitar um email completo (ex: jbvive@gmail.com), usa ele.
+        // Se digitar apenas o nome (ex: admin), adiciona o domínio padrão da empresa.
         let emailToUse = email.trim();
         if (!emailToUse.includes('@')) {
             emailToUse = `${emailToUse}@rodovar.com`;
@@ -31,10 +31,10 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onCancel }) => 
         
         if (error) {
            console.error(error);
-           setError('Email ou senha incorretos.');
+           setError('Credenciais inválidas. Verifique Email e Senha.');
         } else if (user) {
            // Login sucesso
-           const displayUser = user.email ? user.email.split('@')[0] : 'Admin';
+           const displayUser = user.email ? user.email : 'Admin';
            onLoginSuccess(displayUser);
         }
     } catch (err) {
@@ -67,7 +67,7 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onCancel }) => 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-rodovar-black border border-gray-600 rounded-lg p-3 text-rodovar-white focus:border-rodovar-yellow focus:ring-1 focus:ring-rodovar-yellow outline-none transition-all"
-              placeholder="ex: admin@rodovar.com"
+              placeholder="ex: seu.nome@gmail.com ou admin"
             />
           </div>
 

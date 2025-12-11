@@ -30,19 +30,31 @@ export const authService = {
   // Verificar permissão no banco 'users' (Role: MASTER vs BASIC)
   async getUserRole(email: string): Promise<string> {
       if (!supabase) return 'BASIC';
-      // Busca dados extras na tabela pública 'users' se existirem
+      
       try {
-          // Tenta buscar pelo email ou username (parte antes do @)
-          const username = email.split('@')[0];
+          // Busca na tabela pública 'users' onde o JSON 'data' contém o email exato
           const { data } = await supabase
             .from('users')
             .select('*')
-            .or(`username.eq.${username}, data->>email.eq.${email}`)
+            .contains('data', { email: email }) // Busca exata dentro do JSON
             .single();
             
           if (data && data.data && data.data.role) {
               return data.data.role;
           }
+          
+          // Fallback: Tenta buscar pelo username (parte antes do @) caso o email não esteja no JSON
+          const username = email.split('@')[0];
+          const { data: dataByUsername } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', username)
+            .single();
+
+          if (dataByUsername && dataByUsername.data && dataByUsername.data.role) {
+              return dataByUsername.data.role;
+          }
+
       } catch (e) {
           console.error("Erro ao buscar role:", e);
       }
