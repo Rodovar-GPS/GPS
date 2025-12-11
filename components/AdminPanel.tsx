@@ -15,6 +15,15 @@ interface AdminPanelProps {
   currentUser: string;
 }
 
+// --- SYSTEM METADATA ---
+const APP_VERSION = '1.5.0';
+const LAST_UPDATE_DATE = new Date().toLocaleDateString('pt-BR');
+const SYSTEM_AUTHOR = {
+    name: 'Jairo Bahia',
+    phone: '71 9 82319773',
+    email: 'Jairo_bahia@msn.com'
+};
+
 type Tab = 'shipments' | 'users' | 'drivers' | 'settings' | 'history';
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
@@ -416,7 +425,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
   const handleShareMagicLink = (shipmentCode: string) => {
       const baseUrl = window.location.origin;
       const magicLink = `${baseUrl}/?track=${shipmentCode}`;
-      const message = `🚚 *RASTREAMENTO ONLINE ${companyName}*\n\nAcompanhe sua carga em tempo real sem precisar de senha!\n\n🔗 *Clique para rastrear:* ${magicLink}`;
+      const message = `*RASTREAMENTO ONLINE ${companyName}*\n\nAcompanhe sua carga em tempo real sem precisar de senha!\n\n*Clique para rastrear:* ${magicLink}`;
       const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
       window.open(url, '_blank');
   };
@@ -690,54 +699,83 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
              </form>
           </div>
 
-          {/* Preview Side */}
-          <div className="bg-rodovar-gray p-6 rounded-xl border border-gray-700 shadow-xl flex flex-col items-center justify-center opacity-90">
-             <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Pré-visualização do App</h3>
-             
-             {/* Fake Phone UI */}
-             <div className="w-[300px] h-[550px] rounded-[30px] border-8 border-gray-800 relative overflow-hidden shadow-2xl" style={{ backgroundColor: backgroundColor }}>
-                 {/* Header Preview */}
-                 <div className="h-16 flex items-center px-4 gap-2" style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                      <div className="w-8 h-8 rounded flex items-center justify-center" style={{ backgroundColor: primaryColor }}>
-                          <TruckIcon className="w-5 h-5 text-black" />
-                      </div>
-                      <div>
-                          <h1 className="font-bold text-sm leading-tight" style={{ color: textColor }}>{companyName || 'EMPRESA'}</h1>
-                          <p className="text-[8px] text-gray-400">{companySlogan || 'Slogan'}</p>
-                      </div>
-                 </div>
-
-                 {/* Content Preview */}
-                 <div className="p-4 space-y-4">
-                     <div className="p-4 rounded-xl shadow-lg" style={{ backgroundColor: cardColor }}>
-                         <div className="flex justify-between items-center mb-2">
-                             <span className="font-mono font-bold" style={{ color: primaryColor }}>RODO-1234</span>
-                             <span className="text-[8px] bg-green-500/20 text-green-400 px-2 py-1 rounded">EM TRÂNSITO</span>
-                         </div>
-                         <p className="text-xs font-bold" style={{ color: textColor }}>São Paulo - SP</p>
-                         <p className="text-[10px] text-gray-400 mt-1">Atualizado há 10 min</p>
-                     </div>
-
-                     <div className="p-4 rounded-xl shadow-lg flex items-center gap-3" style={{ backgroundColor: cardColor }}>
-                          <div className="w-10 h-10 rounded-full bg-gray-700"></div>
+          {/* Preview Side & System Info */}
+          <div className="flex flex-col gap-6">
+              <div className="bg-rodovar-gray p-6 rounded-xl border border-gray-700 shadow-xl flex flex-col items-center justify-center opacity-90">
+                 <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Pré-visualização do App</h3>
+                 
+                 {/* Fake Phone UI */}
+                 <div className="w-[300px] h-[500px] rounded-[30px] border-8 border-gray-800 relative overflow-hidden shadow-2xl" style={{ backgroundColor: backgroundColor }}>
+                     {/* Header Preview */}
+                     <div className="h-16 flex items-center px-4 gap-2" style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                          <div className="w-8 h-8 rounded flex items-center justify-center" style={{ backgroundColor: primaryColor }}>
+                              <TruckIcon className="w-5 h-5 text-black" />
+                          </div>
                           <div>
-                              <p className="text-xs font-bold" style={{ color: textColor }}>Motorista</p>
-                              <p className="text-[10px] text-gray-400">Placa: ABC-1234</p>
+                              <h1 className="font-bold text-sm leading-tight" style={{ color: textColor }}>{companyName || 'EMPRESA'}</h1>
+                              <p className="text-[8px] text-gray-400">{companySlogan || 'Slogan'}</p>
                           </div>
                      </div>
-                     
-                     <div className="mt-8 flex justify-center">
-                         <button className="px-6 py-2 rounded-full font-bold text-xs shadow-lg" style={{ backgroundColor: primaryColor, color: '#000' }}>
-                             RASTREAR AGORA
-                         </button>
+
+                     {/* Content Preview */}
+                     <div className="p-4 space-y-4">
+                         <div className="p-4 rounded-xl shadow-lg" style={{ backgroundColor: cardColor }}>
+                             <div className="flex justify-between items-center mb-2">
+                                 <span className="font-mono font-bold" style={{ color: primaryColor }}>RODO-1234</span>
+                                 <span className="text-[8px] bg-green-500/20 text-green-400 px-2 py-1 rounded">EM TRÂNSITO</span>
+                             </div>
+                             <p className="text-xs font-bold" style={{ color: textColor }}>São Paulo - SP</p>
+                             <p className="text-[10px] text-gray-400 mt-1">Atualizado há 10 min</p>
+                         </div>
+
+                         <div className="p-4 rounded-xl shadow-lg flex items-center gap-3" style={{ backgroundColor: cardColor }}>
+                              <div className="w-10 h-10 rounded-full bg-gray-700"></div>
+                              <div>
+                                  <p className="text-xs font-bold" style={{ color: textColor }}>Motorista</p>
+                                  <p className="text-[10px] text-gray-400">Placa: ABC-1234</p>
+                              </div>
+                         </div>
+                         
+                         <div className="mt-8 flex justify-center">
+                             <button className="px-6 py-2 rounded-full font-bold text-xs shadow-lg" style={{ backgroundColor: primaryColor, color: '#000' }}>
+                                 RASTREAR AGORA
+                             </button>
+                         </div>
                      </div>
                  </div>
+              </div>
 
-                 {/* Navbar Preview */}
-                 <div className="absolute bottom-0 w-full h-12 bg-black/40 backdrop-blur flex justify-around items-center px-4">
-                      <div className="w-8 h-1 rounded bg-gray-600"></div>
-                 </div>
-             </div>
+              {/* SYSTEM INFO & SUPPORT CARD */}
+              <div className="bg-black/40 p-6 rounded-xl border border-gray-700 shadow-xl">
+                   <h3 className="text-rodovar-yellow font-bold uppercase mb-4 flex items-center gap-2 text-sm">
+                       <span className="text-lg">ℹ️</span> Sobre o Sistema
+                   </h3>
+                   <div className="text-gray-300 text-sm space-y-3">
+                      <div className="flex justify-between items-center bg-gray-800 p-2 rounded">
+                          <p className="font-bold text-xs text-gray-400 uppercase">Versão Atual</p>
+                          <span className="bg-green-900 text-green-400 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1">
+                              <CheckCircleIcon className="w-3 h-3" /> v{APP_VERSION} (Estável)
+                          </span>
+                      </div>
+                      <div className="flex justify-between items-center px-2">
+                          <p className="text-xs text-gray-500">Status</p>
+                          <p className="text-xs text-white">Sistema Atualizado • {LAST_UPDATE_DATE}</p>
+                      </div>
+                      
+                      <div className="border-t border-gray-700 my-4 pt-4">
+                         <p className="text-[10px] text-gray-500 uppercase mb-2 tracking-widest">Suporte Técnico & Desenvolvimento</p>
+                         <div className="space-y-1 pl-2 border-l-2 border-rodovar-yellow">
+                             <p><span className="text-gray-500 text-xs">Autor:</span> <strong className="text-white">{SYSTEM_AUTHOR.name}</strong></p>
+                             <p><span className="text-gray-500 text-xs">WhatsApp:</span> <strong className="text-white">{SYSTEM_AUTHOR.phone}</strong></p>
+                             <p><span className="text-gray-500 text-xs">Email:</span> <strong className="text-white">{SYSTEM_AUTHOR.email}</strong></p>
+                         </div>
+                      </div>
+                      <p className="text-[10px] italic text-gray-500 mt-4 leading-tight">
+                         Para suporte, dúvidas ou atualizações, entre em contato através dos canais acima.
+                         Este sistema é monitorado e atualizado via Vercel/GitHub (Branch Master).
+                      </p>
+                   </div>
+              </div>
           </div>
       </div>
   );

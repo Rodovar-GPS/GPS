@@ -532,41 +532,41 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
 
        switch (type) {
             case 'problem':
-                message = `⚠️ *SOS - SOLICITAÇÃO DE AJUDA URGENTE* ⚠️\n\n` +
-                          `👤 *Motorista:* ${driverName}\n` +
-                          `📦 *Carga:* ${loadCode}\n` +
-                          `🔗 *Rastrear:* ${magicLink}\n\n` +
+                message = `*SOS - SOLICITAÇÃO DE AJUDA URGENTE*\n\n` +
+                          `*Motorista:* ${driverName}\n` +
+                          `*Carga:* ${loadCode}\n` +
+                          `*Rastrear:* ${magicLink}\n\n` +
                           `_Solicito suporte imediato._`;
                 break;
             case 'update':
-                message = `📍 *ATUALIZAÇÃO DE LOCALIZAÇÃO*\n\n` +
-                          `👤 *Motorista:* ${driverName}\n` +
-                          `📦 *Carga:* ${loadCode}\n` +
-                          `🏙️ *Local:* ${s.currentLocation.city} - ${s.currentLocation.state}\n` +
-                          `🔗 *Ver no App:* ${magicLink}`;
+                message = `*ATUALIZAÇÃO DE LOCALIZAÇÃO*\n\n` +
+                          `*Motorista:* ${driverName}\n` +
+                          `*Carga:* ${loadCode}\n` +
+                          `*Local:* ${s.currentLocation.city} - ${s.currentLocation.state}\n` +
+                          `*Ver no App:* ${magicLink}`;
                 break;
             case 'start':
-                message = `🚚 *INÍCIO DE VIAGEM*\n\n` +
-                          `👤 *Motorista:* ${driverName}\n` +
-                          `📦 *Carga:* ${loadCode}\n` +
-                          `🚩 *Rota:* ${s.origin} ➔ ${s.destination}\n` +
-                          `🔗 *Acompanhe Online:* ${magicLink}`;
+                message = `*INÍCIO DE VIAGEM*\n\n` +
+                          `*Motorista:* ${driverName}\n` +
+                          `*Carga:* ${loadCode}\n` +
+                          `*Rota:* ${s.origin} -> ${s.destination}\n` +
+                          `*Acompanhe Online:* ${magicLink}`;
                 break;
             case 'stop':
-                message = `🛑 *RASTREAMENTO PAUSADO*\n\n` +
-                          `📦 *Carga:* ${loadCode}\n` +
-                          `👤 *Motorista:* ${driverName}\n` +
+                message = `*RASTREAMENTO PAUSADO*\n\n` +
+                          `*Carga:* ${loadCode}\n` +
+                          `*Motorista:* ${driverName}\n` +
                           `_O envio de dados foi interrompido pelo motorista._`;
                 break;
             case 'finish':
                 message = `Corrida finalizada\n\n` +
-                          `📦 *Carga:* ${loadCode}\n` +
-                          `👤 *Motorista:* ${driverName}\n` +
-                          `🔗 *Ver Comprovante:* ${magicLink}\n\n` +
-                          `✅ _Entrega realizada com sucesso._`;
+                          `*Carga:* ${loadCode}\n` +
+                          `*Motorista:* ${driverName}\n` +
+                          `*Ver Comprovante:* ${magicLink}\n\n` +
+                          `_Entrega realizada com sucesso._`;
                 break;
             default:
-                message = `🔔 *Atualização de Status*\nCarga: ${loadCode}\nStatus: ${type}\nLink: ${magicLink}`;
+                message = `*Atualização de Status*\nCarga: ${loadCode}\nStatus: ${type}\nLink: ${magicLink}`;
        }
 
        const url = `https://wa.me/${MANAGER_PHONE}?text=${encodeURIComponent(message)}`;
