@@ -122,21 +122,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
   const [newPassword, setNewPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>('BASIC');
   const [userMsg, setUserMsg] = useState('');
-  const [editingUser, setEditingUser] = useState<string | null>(null); // For editing user
+  const [editingUser, setEditingUser] = useState<string | null>(null); 
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
 
   // --- STATES FOR DRIVERS ---
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  // Edit State for Driver
   const [editDriverId, setEditDriverId] = useState<string | null>(null);
-
   const [newDriverName, setNewDriverName] = useState('');
   const [newDriverPhone, setNewDriverPhone] = useState('');
   const [newDriverPhoto, setNewDriverPhoto] = useState('');
   const [newDriverPlate, setNewDriverPlate] = useState('');
   const [newDriverMileage, setNewDriverMileage] = useState('');
   const [newDriverNextMaintenance, setNewDriverNextMaintenance] = useState('');
-
   const [driverMsg, setDriverMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -150,21 +147,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
   const [textColor, setTextColor] = useState('#F5F5F5');
   const [settingsMsg, setSettingsMsg] = useState('');
 
-  // --- HISTORY FILTER STATES ---
   const [historySearch, setHistorySearch] = useState('');
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'ALL' | 'DELIVERED' | 'TRANSIT'>('ALL');
-
-  // --- PROOF VIEW MODAL STATE ---
   const [viewingProofShipment, setViewingProofShipment] = useState<TrackingData | null>(null);
 
   useEffect(() => {
     loadShipments();
-    // loadUsers() will be called when isMaster becomes true
     loadDrivers();
     loadSettings();
   }, []);
 
-  // Fix: Load users when role is confirmed as MASTER
   useEffect(() => {
       if (isMaster) {
           loadUsers();
@@ -199,9 +191,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
   };
 
   const loadUsers = async () => {
-    // Only load users if role is MASTER (double check inside function or rely on effect)
-    // Note: isMaster is from closure state.
-    // Since we call this from an effect that depends on [isMaster], it should be correct.
     setUsers(await getAllUsers());
   };
 
@@ -282,7 +271,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
     );
   };
 
-  // --- ROUTE STOPS LOGIC ---
   const handleAddStop = async () => {
       if (!newStopAddress || !newStopCity) return alert("Informe endereço e cidade para adicionar parada.");
       setLoading(true);
@@ -321,8 +309,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
         const originCoords = await getCoordinatesForString(origin);
         const destCoords = await getCoordinatesForString(destination, destinationAddress);
         
-        // --- INTELLIGENT OPTIMIZATION ---
-        // Se houver paradas, otimiza a ordem usando Nearest Neighbor a partir da Origem
         let finalStops = routeStops;
         if (routeStops.length > 0) {
             finalStops = optimizeRoute(originCoords, routeStops);
@@ -348,9 +334,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
             destination,
             destinationAddress,
             destinationCoordinates: destCoords, 
-            
-            stops: finalStops, // Rota Otimizada
-
+            stops: finalStops, 
             lastUpdate: updateTime,
             lastUpdatedBy: currentUser,
             estimatedDelivery: finalDate,
@@ -358,7 +342,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
             notes,
             progress: calculatedProgress,
             isLive: isEditing ? shipments[code]?.isLive : false,
-            
             driverId: selectedDriverId,
             driverName: assignedDriver ? assignedDriver.name : undefined,
             driverPhoto: assignedDriver ? assignedDriver.photoUrl : undefined,
@@ -370,12 +353,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
 
         await saveShipment(newData);
         await loadShipments(); 
-        
         alert(`✅ Rota ${finalStops.length > 0 ? 'OTIMIZADA e ' : ''}salva com sucesso!`);
-        
-        if (!isEditing) {
-            resetForm();
-        }
+        if (!isEditing) resetForm();
     } catch (err) {
         console.error(err);
         alert("Erro ao processar a solicitação.");
@@ -400,19 +379,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
     setNotes(data.notes || '');
     setDisplayProgress(data.progress);
     setRouteStops(data.stops || []);
-    
     setEstimatedDateInput(formatDateFromBr(data.estimatedDelivery));
     setUpdateTime(getNowFormatted());
     setSelectedDriverId(data.driverId || '');
     setDriverNotes(data.driverNotes || '');
     setExpensesList(data.expenses || []);
-
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleCancelEdit = () => {
-      resetForm();
-  };
+  const handleCancelEdit = () => resetForm();
 
   const handleDeleteShipment = async (codeToDelete: string) => {
     if (confirm(`Excluir carga ${codeToDelete}?`)) {
@@ -441,15 +416,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
       }
 
       try {
+          // Garante que o elemento está visível e forçado com fundo branco para a captura
           const canvas = await html2canvas(element, {
-              scale: 2, 
+              scale: 2.5, // Maior qualidade
               useCORS: true,
-              backgroundColor: null 
+              backgroundColor: '#FFFFFF',
+              logging: false,
+              onclone: (clonedDoc: Document) => {
+                  const clonedElement = clonedDoc.getElementById('admin-proof-card');
+                  if (clonedElement) {
+                      clonedElement.style.display = 'block';
+                      clonedElement.style.boxShadow = 'none';
+                  }
+              }
           });
 
           const link = document.createElement('a');
           link.download = `Comprovante-${viewingProofShipment.code}.png`;
-          link.href = canvas.toDataURL('image/png');
+          link.href = canvas.toDataURL('image/png', 1.0);
           link.click();
       } catch (e) {
           console.error(e);
@@ -457,7 +441,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
       }
   };
 
-  // --- HANDLERS FOR USERS ---
   const handleEditUser = (user: AdminUser) => {
       setNewUsername(user.username);
       setNewPassword(user.password);
@@ -470,34 +453,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
     e.preventDefault();
     if (!isMaster) return; 
     if (!newUsername || !newPassword) return;
-    
     try {
-        const success = await saveUser({ 
-            username: newUsername, 
-            password: newPassword,
-            role: newUserRole
-        });
+        const success = await saveUser({ username: newUsername, password: newPassword, role: newUserRole });
         if (success) {
-            setNewUsername('');
-            setNewPassword('');
-            setEditingUser(null);
+            setNewUsername(''); setNewPassword(''); setEditingUser(null);
             setUserMsg('✅ Usuário salvo com sucesso.');
             await loadUsers();
             setTimeout(() => setUserMsg(''), 3000);
         } else {
-            // If editing, success might be false if username exists, but saveUser logic handles update if pwd changed
-            // Actually storageService.saveUser returns false if exists and no change. 
-            // Let's reload anyway.
             await loadUsers();
             setUserMsg('✅ Usuário atualizado.');
-            setNewUsername('');
-            setNewPassword('');
-            setEditingUser(null);
+            setNewUsername(''); setNewPassword(''); setEditingUser(null);
             setTimeout(() => setUserMsg(''), 3000);
         }
-    } catch (error) {
-        setUserMsg('Erro ao salvar.');
-    }
+    } catch (error) { setUserMsg('Erro ao salvar.'); }
   };
 
   const togglePasswordVisibility = (username: string) => {
@@ -515,7 +484,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
       }
   };
 
-  // --- HANDLERS FOR DRIVERS ---
   const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
       if (event.target.files && event.target.files[0]) {
           const file = event.target.files[0];
@@ -529,11 +497,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                  const MAX_HEIGHT = 300;
                  let width = img.width;
                  let height = img.height;
-                 if (width > height) {
-                     if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-                 } else {
-                     if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
-                 }
+                 if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } }
+                 else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
                  canvas.width = width;
                  canvas.height = height;
                  ctx?.drawImage(img, 0, 0, width, height);
@@ -559,9 +524,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
   const handleSaveDriver = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!isMaster) return alert("Apenas Master.");
-      
       if (!newDriverName) return;
-      
       const newDriver: Driver = {
           id: editDriverId || Date.now().toString(),
           name: newDriverName,
@@ -571,44 +534,27 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
           currentMileage: newDriverMileage ? parseInt(newDriverMileage) : 0,
           nextMaintenanceMileage: newDriverNextMaintenance ? parseInt(newDriverNextMaintenance) : 0
       };
-
       const success = await saveDriver(newDriver);
       if (success) {
-          setEditDriverId(null);
-          setNewDriverName('');
-          setNewDriverPhone('');
-          setNewDriverPhoto('');
-          setNewDriverPlate('');
-          setNewDriverMileage('');
-          setNewDriverNextMaintenance('');
+          setEditDriverId(null); setNewDriverName(''); setNewDriverPhone(''); setNewDriverPhoto('');
+          setNewDriverPlate(''); setNewDriverMileage(''); setNewDriverNextMaintenance('');
           setDriverMsg('✅ Motorista salvo/atualizado.');
           await loadDrivers();
           setTimeout(() => setDriverMsg(''), 3000);
-      } else {
-          setDriverMsg('Erro ao salvar (Nome duplicado?).');
-      }
+      } else setDriverMsg('Erro ao salvar (Nome duplicado?).');
   };
 
   const handleDeleteDriver = async (id: string) => {
       if (!isMaster) return;
-      if (confirm("Remover motorista?")) {
-          await deleteDriver(id);
-          await loadDrivers();
-      }
+      if (confirm("Remover motorista?")) { await deleteDriver(id); await loadDrivers(); }
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!isMaster) return;
-
       const settings: CompanySettings = {
-          name: companyName,
-          slogan: companySlogan,
-          logoUrl: companyLogoUrl,
-          primaryColor,
-          backgroundColor,
-          cardColor,
-          textColor
+          name: companyName, slogan: companySlogan, logoUrl: companyLogoUrl,
+          primaryColor, backgroundColor, cardColor, textColor
       };
       await saveCompanySettings(settings);
       setSettingsMsg('✅ Configurações salvas. Reiniciando...');
@@ -626,7 +572,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
       return (Object.values(shipments) as TrackingData[]).filter(s => {
           const matchSearch = s.code.includes(historySearch.toUpperCase()) || s.company?.toUpperCase().includes(historySearch.toUpperCase());
           if (!matchSearch) return false;
-
           if (historyStatusFilter === 'DELIVERED') return s.status === TrackingStatus.DELIVERED;
           if (historyStatusFilter === 'TRANSIT') return s.status !== TrackingStatus.DELIVERED;
           return true;
@@ -637,7 +582,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
   
   const renderSettingsTab = () => (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Form Side */}
           <div className="bg-rodovar-gray p-6 rounded-xl border border-gray-700 shadow-xl">
              <h3 className="text-xl font-bold text-rodovar-white mb-6 border-b border-gray-700 pb-4 flex items-center gap-2">
                  <TruckIcon className="w-5 h-5 text-rodovar-yellow" /> 
@@ -699,14 +643,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
              </form>
           </div>
 
-          {/* Preview Side & System Info */}
           <div className="flex flex-col gap-6">
               <div className="bg-rodovar-gray p-6 rounded-xl border border-gray-700 shadow-xl flex flex-col items-center justify-center opacity-90">
                  <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Pré-visualização do App</h3>
-                 
-                 {/* Fake Phone UI */}
                  <div className="w-[300px] h-[500px] rounded-[30px] border-8 border-gray-800 relative overflow-hidden shadow-2xl" style={{ backgroundColor: backgroundColor }}>
-                     {/* Header Preview */}
                      <div className="h-16 flex items-center px-4 gap-2" style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                           <div className="w-8 h-8 rounded flex items-center justify-center" style={{ backgroundColor: primaryColor }}>
                               <TruckIcon className="w-5 h-5 text-black" />
@@ -716,8 +656,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                               <p className="text-[8px] text-gray-400">{companySlogan || 'Slogan'}</p>
                           </div>
                      </div>
-
-                     {/* Content Preview */}
                      <div className="p-4 space-y-4">
                          <div className="p-4 rounded-xl shadow-lg" style={{ backgroundColor: cardColor }}>
                              <div className="flex justify-between items-center mb-2">
@@ -727,7 +665,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                              <p className="text-xs font-bold" style={{ color: textColor }}>São Paulo - SP</p>
                              <p className="text-[10px] text-gray-400 mt-1">Atualizado há 10 min</p>
                          </div>
-
                          <div className="p-4 rounded-xl shadow-lg flex items-center gap-3" style={{ backgroundColor: cardColor }}>
                               <div className="w-10 h-10 rounded-full bg-gray-700"></div>
                               <div>
@@ -735,7 +672,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                                   <p className="text-[10px] text-gray-400">Placa: ABC-1234</p>
                               </div>
                          </div>
-                         
                          <div className="mt-8 flex justify-center">
                              <button className="px-6 py-2 rounded-full font-bold text-xs shadow-lg" style={{ backgroundColor: primaryColor, color: '#000' }}>
                                  RASTREAR AGORA
@@ -745,7 +681,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                  </div>
               </div>
 
-              {/* SYSTEM INFO & SUPPORT CARD */}
               <div className="bg-black/40 p-6 rounded-xl border border-gray-700 shadow-xl">
                    <h3 className="text-rodovar-yellow font-bold uppercase mb-4 flex items-center gap-2 text-sm">
                        <span className="text-lg">ℹ️</span> Sobre o Sistema
@@ -761,7 +696,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                           <p className="text-xs text-gray-500">Status</p>
                           <p className="text-xs text-white">Sistema Atualizado • {LAST_UPDATE_DATE}</p>
                       </div>
-                      
                       <div className="border-t border-gray-700 my-4 pt-4">
                          <p className="text-[10px] text-gray-500 uppercase mb-2 tracking-widest">Suporte Técnico & Desenvolvimento</p>
                          <div className="space-y-1 pl-2 border-l-2 border-rodovar-yellow">
@@ -770,10 +704,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                              <p><span className="text-gray-500 text-xs">Email:</span> <strong className="text-white">{SYSTEM_AUTHOR.email}</strong></p>
                          </div>
                       </div>
-                      <p className="text-[10px] italic text-gray-500 mt-4 leading-tight">
-                         Para suporte, dúvidas ou atualizações, entre em contato através dos canais acima.
-                         Este sistema é monitorado e atualizado via Vercel/GitHub (Branch Master).
-                      </p>
                    </div>
               </div>
           </div>
@@ -795,7 +725,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                       <label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Senha de Acesso</label>
                       <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full bg-black/40 border border-gray-600 rounded p-3 text-white focus:border-rodovar-yellow transition-colors" placeholder="******" />
                   </div>
-                  
                   <div className="bg-black/20 p-4 rounded-xl border border-gray-700">
                       <p className="text-xs text-rodovar-yellow uppercase font-bold mb-3 flex items-center gap-2"><UserIcon className="w-4 h-4" /> Nível de Permissão</p>
                       <div className="space-y-3">
@@ -815,17 +744,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                           </label>
                       </div>
                   </div>
-
                   {userMsg && <p className="text-green-400 font-bold text-sm text-center">{userMsg}</p>}
                   <button type="submit" className="w-full bg-gray-700 text-white font-bold py-3 rounded hover:bg-gray-600 uppercase transition-colors">
                       {editingUser ? 'Atualizar Usuário' : 'Criar Usuário'}
                   </button>
-                  {editingUser && (
-                      <button type="button" onClick={() => { setEditingUser(null); setNewUsername(''); setNewPassword(''); setUserMsg(''); }} className="w-full text-xs text-gray-400 mt-2 hover:text-white">Cancelar Edição</button>
-                  )}
+                  {editingUser && <button type="button" onClick={() => { setEditingUser(null); setNewUsername(''); setNewPassword(''); setUserMsg(''); }} className="w-full text-xs text-gray-400 mt-2 hover:text-white">Cancelar Edição</button>}
               </form>
           </div>
-          
           <div className="bg-rodovar-gray p-6 rounded-xl border border-gray-700 shadow-xl">
               <h3 className="text-lg font-bold text-rodovar-white mb-6 border-b border-gray-700 pb-2">Administradores Ativos</h3>
               <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
@@ -848,29 +773,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                                   )}
                               </div>
                           </div>
-                          
                           {isMaster && u.username !== 'admin' && (
                               <div className="flex gap-2">
-                                  <button onClick={() => togglePasswordVisibility(u.username)} className="text-gray-500 hover:text-white p-2" title={visiblePasswords.has(u.username) ? "Ocultar Senha" : "Ver Senha"}>
+                                  <button onClick={() => togglePasswordVisibility(u.username)} className="text-gray-500 hover:text-white p-2">
                                       {visiblePasswords.has(u.username) ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                                   </button>
-                                  <button onClick={() => handleEditUser(u)} className="text-blue-500 hover:text-blue-400 p-2" title="Editar Permissões/Senha">
-                                      <PencilIcon className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={(e) => {e.preventDefault(); handleDeleteUser(u.username);}} className="text-red-500 hover:text-red-400 p-2" title="Remover Usuário">
-                                      <TrashIcon className="w-4 h-4" />
-                                  </button>
+                                  <button onClick={() => handleEditUser(u)} className="text-blue-500 hover:text-blue-400 p-2"><PencilIcon className="w-4 h-4" /></button>
+                                  <button onClick={(e) => {e.preventDefault(); handleDeleteUser(u.username);}} className="text-red-500 hover:text-red-400 p-2"><TrashIcon className="w-4 h-4" /></button>
                               </div>
                           )}
-                           {/* Master admin (admin) specific - can still view their own password if needed but not delete */}
                           {isMaster && u.username === 'admin' && (
                                <div className="flex gap-2">
-                                   <button onClick={() => togglePasswordVisibility(u.username)} className="text-gray-500 hover:text-white p-2" title="Ver Minha Senha">
+                                   <button onClick={() => togglePasswordVisibility(u.username)} className="text-gray-500 hover:text-white p-2">
                                       {visiblePasswords.has(u.username) ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
                                   </button>
-                                  <button onClick={() => handleEditUser(u)} className="text-blue-500 hover:text-blue-400 p-2" title="Editar Senha">
-                                      <PencilIcon className="w-4 h-4" />
-                                  </button>
+                                  <button onClick={() => handleEditUser(u)} className="text-blue-500 hover:text-blue-400 p-2"><PencilIcon className="w-4 h-4" /></button>
                                </div>
                           )}
                       </div>
@@ -882,7 +799,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
 
   const renderHistoryTab = () => {
       const historyItems = getFilteredHistory();
-      
       return (
           <div className="space-y-6">
               <div className="bg-rodovar-gray p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row gap-4 items-center justify-between shadow-lg">
@@ -891,41 +807,27 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                         <h3 className="text-lg font-bold text-white uppercase">Histórico de Viagens</h3>
                    </div>
                    <div className="flex gap-4 w-full md:w-auto">
-                       <input 
-                          value={historySearch} 
-                          onChange={e => setHistorySearch(e.target.value)} 
-                          placeholder="Buscar por Código ou Empresa..." 
-                          className="bg-black/40 border border-gray-600 rounded-lg px-4 py-2 text-white text-sm focus:border-rodovar-yellow outline-none w-full md:w-64"
-                       />
-                       <select 
-                          value={historyStatusFilter} 
-                          onChange={e => setHistoryStatusFilter(e.target.value as any)}
-                          className="bg-black/40 border border-gray-600 rounded-lg px-4 py-2 text-white text-sm focus:border-rodovar-yellow outline-none"
-                       >
+                       <input value={historySearch} onChange={e => setHistorySearch(e.target.value)} placeholder="Buscar por Código..." className="bg-black/40 border border-gray-600 rounded-lg px-4 py-2 text-white text-sm focus:border-rodovar-yellow outline-none w-full md:w-64" />
+                       <select value={historyStatusFilter} onChange={e => setHistoryStatusFilter(e.target.value as any)} className="bg-black/40 border border-gray-600 rounded-lg px-4 py-2 text-white text-sm focus:border-rodovar-yellow outline-none">
                            <option value="ALL">Todos os Status</option>
-                           <option value="DELIVERED">Entregues / Finalizados</option>
-                           <option value="TRANSIT">Em Trânsito / Pendentes</option>
+                           <option value="DELIVERED">Entregues</option>
+                           <option value="TRANSIT">Em Trânsito</option>
                        </select>
                    </div>
               </div>
-
               <div className="grid grid-cols-1 gap-4">
                   {historyItems.length === 0 ? (
                       <div className="text-center py-12 text-gray-500 bg-rodovar-gray rounded-xl border border-gray-700 border-dashed">
-                          <p>Nenhuma viagem encontrada com os filtros atuais.</p>
+                          <p>Nenhuma viagem encontrada.</p>
                       </div>
                   ) : (
                       historyItems.map((item) => (
                           <div key={item.code} className="bg-rodovar-gray rounded-xl border border-gray-700 overflow-hidden shadow-lg hover:border-rodovar-yellow transition-all duration-300 group">
                               <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
-                                  
-                                  {/* Left: Code & Status */}
                                   <div className="md:col-span-3 flex flex-col justify-between border-b md:border-b-0 md:border-r border-gray-700 pb-4 md:pb-0 md:pr-4">
                                        <div>
                                            <div className="flex items-center gap-2 mb-2">
-                                               <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${item.company === 'AXD' ? 'bg-blue-900 text-blue-200' : 'bg-yellow-900 text-yellow-200'}`}>
-                                                   {item.company || 'RODOVAR'}
-                                               </span>
+                                               <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${item.company === 'AXD' ? 'bg-blue-900 text-blue-200' : 'bg-yellow-900 text-yellow-200'}`}>{item.company || 'RODOVAR'}</span>
                                                <span className="text-xs text-gray-500 font-mono">{formatDateFromBr(item.estimatedDelivery)}</span>
                                            </div>
                                            <h4 className="text-2xl font-black text-white tracking-tighter">{item.code}</h4>
@@ -937,78 +839,35 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                                             </div>
                                             {item.status === TrackingStatus.DELIVERED && item.proof && (
                                                 <button onClick={() => setViewingProofShipment(item)} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-rodovar-yellow text-rodovar-yellow text-[10px] font-bold uppercase hover:bg-rodovar-yellow hover:text-black transition-colors">
-                                                    <DownloadIcon className="w-3 h-3" />
-                                                    Ver Comprovante
+                                                    <DownloadIcon className="w-3 h-3" /> Ver Comprovante
                                                 </button>
                                             )}
                                        </div>
                                   </div>
-
-                                  {/* Middle: Route Timeline */}
                                   <div className="md:col-span-6 flex flex-col justify-center relative pl-4 md:pl-0">
                                        <div className="space-y-6 relative z-10">
-                                            {/* Origin */}
                                             <div className="flex items-center gap-4 relative">
                                                 <div className="w-3 h-3 bg-gray-500 rounded-full z-10 outline outline-4 outline-rodovar-gray"></div>
-                                                <div>
-                                                    <p className="text-[10px] text-gray-500 uppercase">Origem</p>
-                                                    <p className="text-sm font-bold text-gray-300">{item.origin}</p>
-                                                </div>
+                                                <div><p className="text-[10px] text-gray-500 uppercase">Origem</p><p className="text-sm font-bold text-gray-300">{item.origin}</p></div>
                                             </div>
-                                            
-                                            {/* Connecting Line */}
                                             <div className="absolute top-1.5 bottom-1.5 left-[5px] w-0.5 bg-gray-700 -z-0"></div>
-
-                                            {/* Stops */}
-                                            {item.stops && item.stops.map((stop, i) => (
-                                                <div key={i} className="flex items-center gap-4 relative">
-                                                    <div className="w-2 h-2 bg-blue-500 rounded-full z-10 outline outline-4 outline-rodovar-gray"></div>
-                                                    <div>
-                                                        <p className="text-[10px] text-blue-400 uppercase">Parada {i+1}</p>
-                                                        <p className="text-xs font-medium text-gray-400">{stop.city}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-
-                                            {/* Destination */}
                                             <div className="flex items-center gap-4 relative">
                                                 <div className={`w-3 h-3 rounded-full z-10 outline outline-4 outline-rodovar-gray ${item.status === TrackingStatus.DELIVERED ? 'bg-green-500' : 'bg-rodovar-yellow'}`}></div>
-                                                <div>
-                                                    <p className="text-[10px] text-gray-500 uppercase">Destino Final</p>
-                                                    <p className="text-sm font-bold text-white">{item.destination}</p>
-                                                </div>
+                                                <div><p className="text-[10px] text-gray-500 uppercase">Destino Final</p><p className="text-sm font-bold text-white">{item.destination}</p></div>
                                             </div>
                                        </div>
                                   </div>
-
-                                  {/* Right: Driver Info */}
                                   <div className="md:col-span-3 border-t md:border-t-0 md:border-l border-gray-700 pt-4 md:pt-0 md:pl-4 flex flex-col justify-center">
                                        {item.driverName ? (
                                            <div className="flex flex-col items-center text-center">
                                                 <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-600 mb-2">
-                                                    {item.driverPhoto ? (
-                                                        <img src={item.driverPhoto} alt={item.driverName} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full bg-gray-800 flex items-center justify-center"><UserIcon className="w-8 h-8 text-gray-500"/></div>
-                                                    )}
+                                                    {item.driverPhoto ? <img src={item.driverPhoto} className="w-full h-full object-cover" /> : <UserIcon className="w-8 h-8 text-gray-500"/>}
                                                 </div>
                                                 <p className="text-sm font-bold text-white">{item.driverName}</p>
-                                                <p className="text-xs text-gray-500">Motorista Responsável</p>
                                                 <button onClick={() => handleEditShipment(item)} className="mt-4 text-xs text-rodovar-yellow hover:underline uppercase">Ver Detalhes</button>
                                            </div>
-                                       ) : (
-                                           <div className="text-center text-gray-500 text-xs">
-                                               <UserIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                                               <p>Sem motorista atribuído</p>
-                                               <button onClick={() => handleEditShipment(item)} className="mt-4 text-xs text-rodovar-yellow hover:underline uppercase">Atribuir Agora</button>
-                                           </div>
-                                       )}
+                                       ) : <p className="text-center text-gray-500 text-xs">Sem motorista</p>}
                                   </div>
-                              </div>
-                              {/* Footer Stats */}
-                              <div className="bg-black/20 px-6 py-2 flex justify-between items-center text-[10px] text-gray-500 border-t border-gray-800">
-                                   <span>Criado por: {item.lastUpdatedBy || 'Sistema'}</span>
-                                   <span>Atualizado: {item.lastUpdate}</span>
                               </div>
                           </div>
                       ))
@@ -1018,107 +877,131 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
       );
   };
 
-
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-4 md:py-8 animate-[fadeIn_0.5s]">
-      
-      {/* MAINTENANCE ALERTS */}
       {maintenanceAlerts.length > 0 && isMaster && (
           <div className="bg-red-900/20 border border-red-500 rounded-lg p-4 mb-6 animate-pulse">
-              <h4 className="text-red-400 font-bold uppercase text-xs mb-2 flex items-center gap-2">
-                  <TruckIcon className="w-4 h-4" /> Alertas de Manutenção Preventiva
-              </h4>
-              <ul className="list-disc pl-5 space-y-1">
-                  {maintenanceAlerts.map((alert, idx) => (
-                      <li key={idx} className="text-xs text-white font-bold">{alert}</li>
-                  ))}
-              </ul>
+              <h4 className="text-red-400 font-bold uppercase text-xs mb-2 flex items-center gap-2"><TruckIcon className="w-4 h-4" /> Alertas de Manutenção</h4>
+              <ul className="list-disc pl-5 space-y-1">{maintenanceAlerts.map((alert, idx) => <li key={idx} className="text-xs text-white font-bold">{alert}</li>)}</ul>
           </div>
       )}
 
-      {/* PROOF OF DELIVERY MODAL */}
+      {/* COMPROVANTE DIGITAL - AJUSTADO PARA EXPORTAÇÃO PERFEITA */}
       {viewingProofShipment && viewingProofShipment.proof && (
-          <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
               <div className="bg-rodovar-gray w-full max-w-[640px] rounded-2xl border border-gray-700 shadow-2xl p-6 relative max-h-[95vh] overflow-y-auto">
-                   <button onClick={() => setViewingProofShipment(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white text-2xl">×</button>
-                   <h2 className="text-lg font-bold text-white mb-4 uppercase tracking-widest text-center">Visualizar Comprovante</h2>
+                   <button onClick={() => setViewingProofShipment(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white text-3xl">×</button>
+                   <h2 className="text-xl font-bold text-white mb-6 uppercase tracking-widest text-center">Comprovante de Entrega</h2>
                    
-                   {/* CARD COPY FOR ADMIN */}
-                   <div id="admin-proof-card" className="bg-white text-black rounded-lg shadow-xl overflow-hidden mx-auto border border-gray-200 mb-6">
-                        <div className="bg-[#22c55e] text-white p-3 flex justify-between items-center">
-                              <div className="flex items-center gap-2">
-                                  <DocumentCheckIcon className="w-5 h-5 text-white" />
-                                  <h3 className="text-sm font-bold uppercase tracking-wide">Comprovante de Entrega Digital</h3>
+                   {/* CARD FINAL PARA EXPORTAÇÃO */}
+                   <div 
+                        id="admin-proof-card" 
+                        className="bg-white text-black rounded-xl shadow-2xl overflow-hidden mx-auto border border-gray-200 mb-8" 
+                        style={{ width: '100%', minWidth: '580px', backgroundColor: '#FFFFFF' }}
+                   >
+                        {/* Header Verde do Comprovante */}
+                        <div className="bg-[#16a34a] text-white p-4 flex justify-between items-center">
+                              <div className="flex items-center gap-3">
+                                  <DocumentCheckIcon className="w-6 h-6 text-white" />
+                                  <h3 className="text-base font-black uppercase tracking-wider">Comprovante de Entrega Digital</h3>
                               </div>
-                              <div className="bg-white text-[#22c55e] text-[10px] px-2 py-0.5 rounded font-bold uppercase">
+                              <div className="bg-white/20 backdrop-blur-sm text-white border border-white/30 text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest">
                                   Canhoto Digital Verificado
                               </div>
-                          </div>
-                          <div className="bg-gray-50 border-b border-gray-200 p-4 flex justify-between items-center">
-                              <div className="flex items-center gap-2">
-                                  {companyLogoUrl ? <img src={companyLogoUrl} className="h-8 w-auto" alt="Logo" /> : <div className="bg-black text-white p-1 rounded"><TruckIcon className="w-4 h-4"/></div>}
+                        </div>
+
+                        {/* Logo e Código */}
+                        <div className="bg-gray-50 border-b border-gray-200 p-5 flex justify-between items-center">
+                              <div className="flex items-center gap-3">
+                                  {companyLogoUrl ? (
+                                      <img src={companyLogoUrl} className="h-10 w-auto object-contain" alt="Logo" />
+                                  ) : (
+                                      <div className="bg-black text-white p-2 rounded-lg"><TruckIcon className="w-5 h-5"/></div>
+                                  )}
                                   <div>
-                                      <p className="font-bold text-sm uppercase leading-tight">{companyName}</p>
-                                      <p className="text-[9px] text-gray-500 uppercase">{companySlogan}</p>
+                                      <p className="font-black text-lg uppercase leading-none text-black">{companyName}</p>
+                                      <p className="text-[10px] text-gray-500 uppercase font-bold mt-1 tracking-widest">{companySlogan}</p>
                                   </div>
                               </div>
                               <div className="text-right">
-                                  <p className="text-[9px] text-gray-500 uppercase">Código da Carga</p>
-                                  <p className="text-lg font-mono font-bold tracking-tighter text-black">{viewingProofShipment.code}</p>
+                                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Código da Carga</p>
+                                  <p className="text-2xl font-black font-mono tracking-tighter text-black uppercase">{viewingProofShipment.code}</p>
                               </div>
-                          </div>
-                          <div className="p-4 grid grid-cols-2 gap-4">
-                              <div className="space-y-4 border-r border-gray-100 pr-2">
+                        </div>
+
+                        {/* Conteúdo Principal do Canhoto */}
+                        <div className="p-6 grid grid-cols-12 gap-6 bg-white">
+                              <div className="col-span-6 space-y-6 border-r border-gray-100 pr-4">
                                   <div>
-                                      <p className="text-[9px] text-gray-400 uppercase font-bold mb-0.5">Recebido Por</p>
-                                      <p className="font-bold text-sm text-black leading-tight">{viewingProofShipment.proof.receiverName}</p>
-                                      <p className="text-[10px] text-gray-600">Doc: {viewingProofShipment.proof.receiverDoc}</p>
+                                      <p className="text-[10px] text-gray-400 uppercase font-black mb-1 tracking-widest">Recebido Por</p>
+                                      <p className="font-black text-base text-black leading-tight uppercase">{viewingProofShipment.proof.receiverName}</p>
+                                      <p className="text-xs text-gray-600 font-bold mt-1">Doc: {viewingProofShipment.proof.receiverDoc}</p>
                                   </div>
                                   <div>
-                                      <p className="text-[9px] text-gray-400 uppercase font-bold mb-0.5">Data da Entrega</p>
-                                      <p className="text-xs text-black font-medium">{new Date(viewingProofShipment.proof.timestamp).toLocaleString('pt-BR')}</p>
+                                      <p className="text-[10px] text-gray-400 uppercase font-black mb-1 tracking-widest">Data e Hora da Entrega</p>
+                                      <p className="text-sm text-black font-black">{new Date(viewingProofShipment.proof.timestamp).toLocaleString('pt-BR')}</p>
                                   </div>
                                   <div>
-                                      <p className="text-[9px] text-gray-400 uppercase font-bold mb-0.5">Local Validade (GPS)</p>
-                                      <div className="text-[10px] text-blue-600 flex items-center gap-1 font-mono">
-                                          <MapPinIcon className="w-3 h-3" /> 
-                                          {viewingProofShipment.proof.location.lat.toFixed(5)}, {viewingProofShipment.proof.location.lng.toFixed(5)}
+                                      <p className="text-[10px] text-gray-400 uppercase font-black mb-1 tracking-widest">Validação GPS (Localização)</p>
+                                      <div className="text-xs text-blue-700 flex items-center gap-2 font-mono font-bold bg-blue-50 p-2 rounded-md border border-blue-100">
+                                          <MapPinIcon className="w-4 h-4" /> 
+                                          {viewingProofShipment.proof.location.lat.toFixed(6)}, {viewingProofShipment.proof.location.lng.toFixed(6)}
                                       </div>
                                   </div>
                               </div>
-                              <div className="flex flex-col gap-3">
-                                  <div className="border border-gray-200 rounded-md bg-gray-50 p-2 text-center h-24 flex flex-col justify-center">
-                                      <p className="text-[8px] text-gray-400 uppercase mb-1">Assinatura Digital</p>
-                                      <img src={viewingProofShipment.proof.signatureBase64} className="h-full w-full object-contain mix-blend-multiply" alt="Assinatura" />
-                                  </div>
-                                  {viewingProofShipment.proof.photoBase64 && (
-                                      <div className="border border-gray-200 rounded-md overflow-hidden h-24 relative bg-black">
-                                          <img src={viewingProofShipment.proof.photoBase64} className="w-full h-full object-cover opacity-90" alt="Foto da Entrega" />
-                                          <div className="absolute bottom-0 left-0 w-full bg-black/50 text-white text-[8px] p-0.5 text-center">Foto Local</div>
+
+                              <div className="col-span-6 flex flex-col gap-4">
+                                  {/* Caixa de Assinatura Digital */}
+                                  <div className="border border-gray-200 rounded-xl bg-gray-50 flex flex-col h-[130px] overflow-hidden shadow-inner">
+                                      <p className="text-[9px] text-gray-400 uppercase font-black text-center pt-2 tracking-widest">Assinatura Digital</p>
+                                      <div className="flex-1 flex items-center justify-center p-2">
+                                          <img src={viewingProofShipment.proof.signatureBase64} className="max-h-full max-w-full object-contain mix-blend-multiply" alt="Assinatura" />
                                       </div>
-                                  )}
+                                  </div>
+
+                                  {/* Caixa da Foto Local */}
+                                  <div className="border border-gray-200 rounded-xl overflow-hidden h-[130px] relative bg-black shadow-inner">
+                                      {viewingProofShipment.proof.photoBase64 ? (
+                                          <>
+                                              <img src={viewingProofShipment.proof.photoBase64} className="w-full h-full object-cover opacity-85" alt="Foto da Entrega" />
+                                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                  <span className="text-white/30 text-2xl font-black uppercase tracking-tighter rotate-[-15deg] select-none">Entrega Recebida</span>
+                                              </div>
+                                              <div className="absolute bottom-0 left-0 w-full bg-black/60 text-white text-[9px] font-black p-1 text-center tracking-widest uppercase">Registro Fotográfico no Local</div>
+                                          </>
+                                      ) : (
+                                          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400">
+                                              <CameraIcon className="w-8 h-8 mb-2 opacity-30" />
+                                              <span className="text-[10px] uppercase font-black tracking-widest">Sem Registro Fotográfico</span>
+                                          </div>
+                                      )}
+                                  </div>
                               </div>
-                          </div>
-                          <div className="bg-gray-100 p-2 text-center border-t border-gray-200">
-                              <p className="text-[8px] text-gray-400 uppercase tracking-widest">Documento gerado eletronicamente em {new Date().toLocaleDateString()}</p>
-                          </div>
+                        </div>
+
+                        {/* Rodapé do Canhoto */}
+                        <div className="bg-gray-50 p-4 text-center border-t border-gray-200">
+                              <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest">
+                                  Documento autêntico gerado eletronicamente em {new Date().toLocaleDateString('pt-BR')} • {companyName} Logística
+                              </p>
+                        </div>
                    </div>
 
-                   <button onClick={handleDownloadProof} className="w-full bg-rodovar-yellow text-black font-bold py-3 rounded-xl uppercase tracking-widest hover:bg-yellow-400 shadow-lg flex items-center justify-center gap-2">
-                       <DownloadIcon className="w-5 h-5" />
-                       Baixar Imagem (PNG)
+                   <button onClick={handleDownloadProof} className="w-full bg-rodovar-yellow text-black font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-yellow-400 shadow-[0_10px_30px_rgba(255,215,0,0.3)] flex items-center justify-center gap-3 transition-all hover:scale-[1.02]">
+                       <DownloadIcon className="w-6 h-6" />
+                       BAIXAR COMPROVANTE (PNG)
                    </button>
               </div>
           </div>
       )}
 
+      {/* Header do Painel Admin */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 md:mb-8 gap-4">
         <div className="text-center md:text-left">
             <h2 className="text-2xl md:text-3xl font-bold text-rodovar-white">Painel {userRole}</h2>
             <p className="text-gray-500 text-xs md:text-sm">Sistema de Gestão {companyName}</p>
         </div>
-        
-        <div className="flex flex-wrap justify-center gap-2 bg-rodovar-gray p-1 rounded-lg border border-gray-700 w-full md:w-auto overflow-x-auto">
+        <div className="flex flex-wrap justify-center gap-2 bg-rodovar-gray p-1 rounded-lg border border-gray-700 w-full md:w-auto">
             <button onClick={() => setActiveTab('shipments')} className={`px-4 py-2 rounded-md text-xs font-bold whitespace-nowrap ${activeTab === 'shipments' ? 'bg-rodovar-yellow text-black' : 'text-gray-400'}`}>CARGAS ATIVAS</button>
             <button onClick={() => setActiveTab('history')} className={`px-4 py-2 rounded-md text-xs font-bold whitespace-nowrap ${activeTab === 'history' ? 'bg-rodovar-yellow text-black' : 'text-gray-400'}`}>HISTÓRICO</button>
             {isMaster && (
@@ -1129,37 +1012,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                 </>
             )}
         </div>
-
-        <button onClick={onClose} className="text-red-400 bg-red-900/10 px-4 py-2 rounded text-xs font-bold border border-red-900/20 hover:bg-red-900/30">SAIR</button>
+        <button onClick={onClose} className="text-red-400 bg-red-900/10 px-4 py-2 rounded text-xs font-bold border border-red-900/20">SAIR</button>
       </div>
 
-      {/* RENDER CONTENT BASED ON TAB */}
       <div className="min-h-[500px]">
           {activeTab === 'shipments' && (
              <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
-                {/* ... (Existing Shipments UI) ... */}
                 <div className="xl:col-span-6 bg-rodovar-gray rounded-xl border border-gray-700 shadow-xl overflow-hidden relative">
                     <div className="bg-black/20 border-b border-gray-700 p-4 flex justify-between items-center">
                         <h3 className="text-base font-bold text-rodovar-white">{isEditing ? `Editando: ${code}` : 'Nova Carga'}</h3>
                         {isEditing && <button onClick={handleCancelEdit} className="text-[10px] text-red-400">Cancelar</button>}
                     </div>
-                    
                     <form onSubmit={handleSaveShipment} className="p-4 md:p-6 space-y-6">
-                        
-                        {/* COMPANY */}
                         <div className="grid grid-cols-2 gap-4">
                              <button type="button" onClick={() => handleCompanyChange('RODOVAR')} disabled={isEditing} className={`py-3 rounded font-bold border ${selectedCompany === 'RODOVAR' ? 'bg-rodovar-yellow text-black border-rodovar-yellow' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>RODOVAR</button>
                              <button type="button" onClick={() => handleCompanyChange('AXD')} disabled={isEditing} className={`py-3 rounded font-bold border ${selectedCompany === 'AXD' ? 'bg-blue-600 text-white border-blue-500' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>AXD</button>
                         </div>
-
                         <div className="grid grid-cols-2 gap-4">
                             <input value={code} readOnly className="bg-rodovar-black border border-gray-700 rounded p-2 text-rodovar-yellow font-bold text-center" />
                             <select value={status} onChange={e => setStatus(e.target.value as TrackingStatus)} className="bg-rodovar-black border border-gray-700 rounded p-2 text-white">
                                 {Object.entries(StatusLabels).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                             </select>
                         </div>
-
-                        {/* DRIVER */}
                         <div className="relative">
                             <SteeringWheelIcon className="absolute left-3 top-3 w-4 h-4 text-gray-500" />
                             <select value={selectedDriverId} onChange={e => setSelectedDriverId(e.target.value)} className="w-full bg-rodovar-black border border-gray-700 rounded p-2 pl-10 text-white">
@@ -1167,15 +1041,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                                 {drivers.map(d => <option key={d.id} value={d.id}>{d.name} {d.vehiclePlate ? `(${d.vehiclePlate})` : ''}</option>)}
                             </select>
                         </div>
-
-                        {/* ROUTE */}
                         <div className="bg-black/20 p-4 rounded border border-gray-800 space-y-3">
                              <h4 className="text-rodovar-yellow text-xs font-bold uppercase">Rota & Paradas</h4>
                              <input value={origin} onChange={e => setOrigin(e.target.value)} placeholder="Cidade de Origem" className="w-full bg-rodovar-black border border-gray-700 rounded p-2 text-white" />
-                             
-                             {/* MULTI-STOP ADDER */}
                              <div className="border-l-2 border-rodovar-yellow pl-3 space-y-2">
-                                 <p className="text-[10px] text-gray-400 uppercase">Adicionar Entregas / Paradas (Otimização Automática)</p>
+                                 <p className="text-[10px] text-gray-400 uppercase">Adicionar Entregas / Paradas</p>
                                  <div className="flex gap-2">
                                      <input value={newStopCity} onChange={e => setNewStopCity(e.target.value)} placeholder="Cidade" className="w-1/3 bg-rodovar-black border border-gray-700 rounded p-2 text-white text-xs" />
                                      <input value={newStopAddress} onChange={e => setNewStopAddress(e.target.value)} placeholder="Endereço" className="w-2/3 bg-rodovar-black border border-gray-700 rounded p-2 text-white text-xs" />
@@ -1189,16 +1059,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                                                  <button type="button" onClick={() => handleRemoveStop(stop.id)} className="text-red-500 font-bold">x</button>
                                              </div>
                                          ))}
-                                         <p className="text-[10px] text-green-500 italic">* A rota será otimizada automaticamente ao salvar.</p>
                                      </div>
                                  )}
                              </div>
-
                              <input value={destination} onChange={e => setDestination(e.target.value)} placeholder="Cidade Destino Final" className="w-full bg-rodovar-black border border-gray-700 rounded p-2 text-white" />
                              <input value={destinationAddress} onChange={e => setDestinationAddress(e.target.value)} placeholder="Endereço Destino Final" className="w-full bg-rodovar-black border border-gray-700 rounded p-2 text-white" />
                         </div>
-
-                        {/* CURRENT LOC */}
                         <div className="grid grid-cols-2 gap-4">
                             <input value={city} onChange={e => setCity(e.target.value)} placeholder="Cidade Atual" className="bg-rodovar-black border border-gray-700 rounded p-2 text-white" />
                             <input value={state} onChange={e => setState(e.target.value)} placeholder="UF" maxLength={2} className="bg-rodovar-black border border-gray-700 rounded p-2 text-white uppercase" />
@@ -1206,16 +1072,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                         <button type="button" onClick={handleGetDriverLocation} disabled={gpsLoading} className="w-full bg-blue-900/30 text-blue-400 text-xs py-2 rounded flex justify-center gap-2 border border-blue-900/50">
                             {gpsLoading ? '...' : <><MapPinIcon className="w-3 h-3"/> ATUALIZAR VIA GPS</>}
                         </button>
-
                         <input value={message} onChange={e => setMessage(e.target.value)} placeholder="Mensagem Pública" className="w-full bg-rodovar-black border border-gray-700 rounded p-2 text-white" />
                         <input type="date" value={estimatedDateInput} onChange={e => setEstimatedDateInput(e.target.value)} className="w-full bg-rodovar-black border border-gray-700 rounded p-2 text-white" />
-
                         <button type="submit" disabled={loading} className="w-full bg-rodovar-yellow text-black font-bold py-4 rounded-lg uppercase tracking-widest hover:bg-yellow-400 shadow-lg">
                             {loading ? 'PROCESSANDO...' : isEditing ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR ROTA OTIMIZADA'}
                         </button>
                     </form>
                 </div>
-
                 <div className="xl:col-span-6 space-y-4">
                     <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Buscar carga..." className="w-full bg-rodovar-black border border-gray-700 rounded-full py-2 px-4 text-white" />
                     <div className="max-h-[800px] overflow-y-auto space-y-3 pr-2">
@@ -1225,18 +1088,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                                     <span className="text-rodovar-yellow font-bold font-mono">{s.code}</span>
                                     <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${s.status === TrackingStatus.DELIVERED ? 'bg-green-900 text-green-400' : 'bg-gray-800 text-gray-400'}`}>{StatusLabels[s.status]}</span>
                                 </div>
-                                <div className="text-xs text-gray-400">
-                                    <p>Origem: {s.origin}</p>
-                                    {s.stops && s.stops.length > 0 && (
-                                        <p className="text-blue-400"> + {s.stops.length} Paradas Intermediárias</p>
-                                    )}
-                                    <p>Destino: {s.destination}</p>
-                                </div>
+                                <div className="text-xs text-gray-400"><p>Origem: {s.origin}</p><p>Destino: {s.destination}</p></div>
                                 <div className="flex justify-end gap-2 mt-2">
-                                    {/* MAGIC LINK SHARE BUTTON */}
-                                    <button onClick={() => handleShareMagicLink(s.code)} className="text-green-500 text-xs font-bold uppercase px-2 flex items-center gap-1 hover:text-green-400" title="Enviar Link Mágico para Cliente">
-                                        <WhatsAppIcon className="w-3 h-3" /> Link Cliente
-                                    </button>
+                                    <button onClick={() => handleShareMagicLink(s.code)} className="text-green-500 text-xs font-bold uppercase px-2 flex items-center gap-1 hover:text-green-400"><WhatsAppIcon className="w-3 h-3" /> Link Cliente</button>
                                     <button onClick={() => handleEditShipment(s)} className="text-blue-400 text-xs font-bold uppercase px-2">Editar</button>
                                     {isMaster && <button onClick={() => handleDeleteShipment(s.code)} className="text-red-400 text-xs font-bold uppercase px-2">Excluir</button>}
                                 </div>
@@ -1246,79 +1100,47 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                 </div>
              </div>
           )}
-          
           {activeTab === 'history' && renderHistoryTab()}
-
           {activeTab === 'users' && isMaster && renderUsersTab()}
-
           {activeTab === 'settings' && isMaster && renderSettingsTab()}
-
           {activeTab === 'drivers' && isMaster && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-rodovar-gray p-6 rounded-xl border border-gray-700 h-fit">
-                    <h3 className="text-xl font-bold text-rodovar-white mb-6">
-                        {editDriverId ? `Editar: ${newDriverName}` : 'Cadastrar Motorista'}
-                    </h3>
+                    <h3 className="text-xl font-bold text-rodovar-white mb-6">{editDriverId ? `Editar: ${newDriverName}` : 'Cadastrar Motorista'}</h3>
                     <form onSubmit={handleSaveDriver} className="space-y-4">
-                        
                         <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-700 rounded-xl bg-black/20 relative">
                             <input type="file" accept="image/*" ref={fileInputRef} onChange={handlePhotoSelect} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"/>
                             {newDriverPhoto ? <img src={newDriverPhoto} className="w-24 h-24 rounded-full object-cover border-4 border-rodovar-yellow" /> : <div className="w-24 h-24 rounded-full bg-gray-800 flex items-center justify-center border-4 border-gray-700"><UploadIcon className="w-8 h-8 text-gray-400" /></div>}
                             <p className="mt-2 text-xs text-gray-400 uppercase font-bold">Foto de Perfil</p>
                         </div>
-
                         <input value={newDriverName} onChange={e => setNewDriverName(e.target.value)} className="w-full bg-rodovar-black border border-gray-600 rounded p-3 text-white" placeholder="Nome Completo" />
-                        <input value={newDriverPhone} onChange={e => setNewDriverPhone(e.target.value)} className="w-full bg-rodovar-black border border-gray-600 rounded p-3 text-white" placeholder="Celular (Somente números)" />
-                        
+                        <input value={newDriverPhone} onChange={e => setNewDriverPhone(e.target.value)} className="w-full bg-rodovar-black border border-gray-600 rounded p-3 text-white" placeholder="Celular" />
                         <div className="bg-black/20 p-3 rounded border border-gray-800">
-                            <h4 className="text-gray-400 text-xs font-bold uppercase mb-2">Dados do Veículo</h4>
-                            <input value={newDriverPlate} onChange={e => setNewDriverPlate(e.target.value)} className="w-full bg-rodovar-black border border-gray-600 rounded p-2 text-white mb-2 uppercase" placeholder="Placa do Veículo" />
+                            <h4 className="text-gray-400 text-xs font-bold uppercase mb-2">Veículo</h4>
+                            <input value={newDriverPlate} onChange={e => setNewDriverPlate(e.target.value)} className="w-full bg-rodovar-black border border-gray-600 rounded p-2 text-white mb-2 uppercase" placeholder="Placa" />
                             <div className="grid grid-cols-2 gap-2">
                                 <input type="number" value={newDriverMileage} onChange={e => setNewDriverMileage(e.target.value)} className="w-full bg-rodovar-black border border-gray-600 rounded p-2 text-white text-xs" placeholder="Km Atual" />
-                                <input type="number" value={newDriverNextMaintenance} onChange={e => setNewDriverNextMaintenance(e.target.value)} className="w-full bg-rodovar-black border border-gray-600 rounded p-2 text-white text-xs" placeholder="Próx. Revisão (Km)" />
+                                <input type="number" value={newDriverNextMaintenance} onChange={e => setNewDriverNextMaintenance(e.target.value)} className="w-full bg-rodovar-black border border-gray-600 rounded p-2 text-white text-xs" placeholder="Próx. Revisão" />
                             </div>
-                            <p className="text-[9px] text-gray-500 mt-1">* O sistema avisará quando faltar 500km para revisão.</p>
                         </div>
-
                         {driverMsg && <p className="text-green-500 text-sm font-bold">{driverMsg}</p>}
                         <button type="submit" className="w-full bg-rodovar-yellow text-black font-bold py-3 rounded hover:bg-yellow-400 uppercase">
                             {editDriverId ? 'Atualizar Motorista' : 'Salvar Motorista'}
                         </button>
-                        {editDriverId && (
-                            <button type="button" onClick={() => {
-                                setEditDriverId(null);
-                                setNewDriverName('');
-                                setNewDriverPhone('');
-                                setNewDriverPhoto('');
-                                setNewDriverPlate('');
-                                setNewDriverMileage('');
-                                setNewDriverNextMaintenance('');
-                            }} className="w-full text-xs text-gray-500 mt-1 hover:text-white">Cancelar Edição</button>
-                        )}
                     </form>
                 </div>
-
                 <div className="bg-rodovar-gray p-6 rounded-xl border border-gray-700">
                     <h3 className="text-xl font-bold text-rodovar-white mb-6">Equipe</h3>
                     <div className="space-y-3">
                         {drivers.map(d => (
                             <div key={d.id} className="flex justify-between items-center bg-black/30 p-4 rounded-lg border border-gray-800">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-gray-800 overflow-hidden">
-                                        {d.photoUrl ? <img src={d.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-full h-full p-2 text-gray-500" />}
-                                    </div>
-                                    <div>
-                                        <p className="text-white font-bold text-sm">{d.name}</p>
-                                        {d.vehiclePlate && <p className="text-[10px] text-gray-400">Placa: {d.vehiclePlate} | Km: {d.currentMileage}</p>}
-                                    </div>
+                                    <div className="w-10 h-10 rounded-full bg-gray-800 overflow-hidden">{d.photoUrl ? <img src={d.photoUrl} className="w-full h-full object-cover" /> : <UserIcon className="w-full h-full p-2 text-gray-500" />}</div>
+                                    <div><p className="text-white font-bold text-sm">{d.name}</p><p className="text-[10px] text-gray-400">Placa: {d.vehiclePlate}</p></div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button onClick={() => handleEditDriver(d)} className="text-blue-500 hover:text-blue-400 p-2" title="Editar">
-                                        <PencilIcon className="w-4 h-4" />
-                                    </button>
-                                    <button onClick={() => handleDeleteDriver(d.id)} className="text-red-500 hover:text-red-400 p-2" title="Remover">
-                                        <TrashIcon className="w-4 h-4" />
-                                    </button>
+                                    <button onClick={() => handleEditDriver(d)} className="text-blue-500 hover:text-blue-400 p-2"><PencilIcon className="w-4 h-4" /></button>
+                                    <button onClick={() => handleDeleteDriver(d.id)} className="text-red-500 hover:text-red-400 p-2"><TrashIcon className="w-4 h-4" /></button>
                                 </div>
                             </div>
                         ))}
@@ -1327,7 +1149,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
             </div>
           )}
       </div>
-
     </div>
   );
 };
