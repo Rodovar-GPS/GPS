@@ -41,7 +41,6 @@ const App: React.FC = () => {
 
   const [isListening, setIsListening] = useState(false);
 
-  // --- WELCOME REACTION LOGIC (MEU CHEF!) ---
   useEffect(() => {
       if (adminUser) {
           const today = new Date().toISOString().split('T')[0];
@@ -53,13 +52,10 @@ const App: React.FC = () => {
               if ('speechSynthesis' in window) {
                   const utterance = new SpeechSynthesisUtterance(msg);
                   utterance.lang = 'pt-BR';
-                  
-                  // Busca vozes brasileiras de qualidade
                   const voices = window.speechSynthesis.getVoices();
                   const brVoice = voices.find(v => v.lang.includes('pt-BR') && (v.name.includes('Google') || v.name.includes('Luciana')));
                   if (brVoice) utterance.voice = brVoice;
-                  
-                  utterance.rate = 0.95; // Velocidade natural
+                  utterance.rate = 1.1; 
                   utterance.pitch = 1.0;
                   window.speechSynthesis.speak(utterance);
               }
@@ -165,7 +161,7 @@ const App: React.FC = () => {
                         setRemainingDistance(Math.round(dist));
                    }
                } catch (e) { console.error(e); }
-          }, 5000); 
+          }, 10000); 
       }
       return () => { if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current); };
   }, [trackingData?.isLive, trackingData?.code, trackingData?.status]);
@@ -356,7 +352,6 @@ const App: React.FC = () => {
 
       <main className="flex-grow flex flex-col items-center relative pb-20 md:pb-12">
         
-        {/* Advanced Map Toggle (Admin Only) */}
         {adminUser && (
             <div className="w-full max-w-7xl px-4 mt-4 animate-[fadeIn_0.5s]">
                 <button 
@@ -418,18 +413,30 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="space-y-6 md:space-y-8">
-                                    <div className="relative pl-4 border-l-2 border-gray-700 space-y-6">
+                                    {/* TIPO DE CARGA NO RASTREIO */}
+                                    <div className="bg-black/40 p-3 rounded-xl border border-gray-700">
+                                        <p className="text-[10px] text-gray-500 uppercase font-bold mb-1 tracking-widest">Tipo de Carga</p>
+                                        <p className="text-sm font-black text-rodovar-yellow uppercase">{trackingData.loadType || 'CARGAS GERAIS'}</p>
+                                    </div>
+
+                                    <div className="relative pl-4 border-l-2 border-gray-700 space-y-4">
                                         <div>
-                                            <h4 className="text-gray-400 text-[10px] uppercase tracking-widest">Localização Atual {trackingData.isLive && <span className="text-red-500 ml-1">● AO VIVO</span>}</h4>
+                                            <h4 className="text-gray-400 text-[10px] uppercase tracking-widest">Localização Atual {trackingData.isLive && <span className="text-red-500 ml-1 animate-pulse">● AO VIVO</span>}</h4>
                                             <p className="text-lg md:text-xl font-bold text-rodovar-white">{trackingData.currentLocation.city}, {trackingData.currentLocation.state}</p>
+                                            {trackingData.currentLocation.address && (
+                                                <p className="text-xs text-gray-400 mt-1 flex items-center gap-1 italic">
+                                                    <MapPinIcon className="w-3 h-3 text-rodovar-yellow" />
+                                                    {trackingData.currentLocation.address}
+                                                </p>
+                                            )}
                                             {trackingData.driverName && (
                                                 <div className="flex items-center gap-3 mt-4 bg-black/20 p-3 rounded-lg border border-gray-800">
-                                                    <div className="w-10 h-10 rounded-full overflow-hidden border border-rodovar-yellow">
+                                                    <div className="w-10 h-10 rounded-full overflow-hidden border border-rodovar-yellow bg-gray-900">
                                                         {trackingData.driverPhoto ? <img src={trackingData.driverPhoto} className="w-full h-full object-cover" /> : <UserIcon className="w-6 h-6 m-auto text-gray-500" />}
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] text-gray-500 uppercase">Responsável</p>
-                                                        <p className="text-sm font-bold text-white">{trackingData.driverName}</p>
+                                                        <p className="text-[10px] text-gray-500 uppercase font-black">Motorista Responsável</p>
+                                                        <p className="text-sm font-black text-white uppercase">{trackingData.driverName}</p>
                                                     </div>
                                                 </div>
                                             )}
@@ -457,6 +464,8 @@ const App: React.FC = () => {
                             stops={trackingData?.stops}
                             userLocation={userLocation}
                             status={trackingData?.status}
+                            company={trackingData?.company}
+                            shipmentData={trackingData || {}}
                             className="h-full w-full"
                         />
                     </div>

@@ -16,13 +16,25 @@ interface AdminPanelProps {
 }
 
 // --- SYSTEM METADATA ---
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.6.0';
 const LAST_UPDATE_DATE = new Date().toLocaleDateString('pt-BR');
 const SYSTEM_AUTHOR = {
     name: 'Jairo Bahia',
     phone: '71 9 82319773',
     email: 'Jairo_bahia@msn.com'
 };
+
+const LOAD_TYPES = [
+    'CARGAS PERIGOSAS',
+    'CARGAS GERAIS',
+    'CARGAS REFRIGERADAS',
+    'CARGAS LÍQUIDAS',
+    'CARGAS PESADAS / INDIVISÍVEIS',
+    'CARGAS EXCEDENTES',
+    'CARGAS A GRANEL',
+    'CARGAS CONTEINERIZADAS',
+    'CARGAS ESPECIAIS'
+];
 
 type Tab = 'shipments' | 'users' | 'drivers' | 'settings' | 'history';
 
@@ -31,7 +43,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
   const [userRole, setUserRole] = useState<UserRole>('BASIC');
   const [maintenanceAlerts, setMaintenanceAlerts] = useState<string[]>([]);
 
-  // Check current user role to determine access
   useEffect(() => {
       const checkRole = async () => {
           const allUsers = await getAllUsers();
@@ -53,7 +64,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
       setMaintenanceAlerts(alerts);
   };
 
-  // --- HELPER: DATES ---
   const getNowFormatted = () => {
     const now = new Date();
     const day = String(now.getDate()).padStart(2, '0');
@@ -86,7 +96,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
       return `${parts[2]}-${parts[1]}-${parts[0]}`;
   };
 
-  // --- STATES FOR SHIPMENTS ---
   const [shipments, setShipments] = useState<Record<string, TrackingData>>({});
   const [loading, setLoading] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false); 
@@ -96,6 +105,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
 
   const [code, setCode] = useState('');
   const [status, setStatus] = useState<TrackingStatus>(TrackingStatus.IN_TRANSIT);
+  const [loadType, setLoadType] = useState('CARGAS GERAIS');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [address, setAddress] = useState('');
@@ -111,12 +121,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
   const [updateTime, setUpdateTime] = useState(getNowFormatted());
   const [displayProgress, setDisplayProgress] = useState(0);
 
-  // ROUTE OPTIMIZATION STATES
   const [routeStops, setRouteStops] = useState<RouteStop[]>([]);
   const [newStopAddress, setNewStopAddress] = useState('');
   const [newStopCity, setNewStopCity] = useState('');
 
-  // --- STATES FOR USERS ---
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -125,7 +133,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
   const [editingUser, setEditingUser] = useState<string | null>(null); 
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
 
-  // --- STATES FOR DRIVERS ---
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [editDriverId, setEditDriverId] = useState<string | null>(null);
   const [newDriverName, setNewDriverName] = useState('');
@@ -137,7 +144,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
   const [driverMsg, setDriverMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- STATES FOR SETTINGS ---
   const [companyName, setCompanyName] = useState('RODOVAR');
   const [companySlogan, setCompanySlogan] = useState('Logística Inteligente');
   const [companyLogoUrl, setCompanyLogoUrl] = useState('');
@@ -214,6 +220,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
       setSelectedCompany('RODOVAR');
       generateNewCode('RODOVAR'); 
       setStatus(TrackingStatus.IN_TRANSIT);
+      setLoadType('CARGAS GERAIS');
       setCity('');
       setState('');
       setAddress('');
@@ -324,6 +331,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
             code: code.toUpperCase(),
             company: selectedCompany,
             status,
+            loadType,
             currentLocation: {
                 city,
                 state: state.toUpperCase(),
@@ -369,6 +377,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
     setSelectedCompany(data.company || 'RODOVAR');
     setCode(data.code);
     setStatus(data.status);
+    setLoadType(data.loadType || 'CARGAS GERAIS');
     setCity(data.currentLocation.city);
     setState(data.currentLocation.state);
     setAddress(data.currentLocation.address || '');
@@ -416,7 +425,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
       }
 
       try {
-          // Garante que o elemento está visível e forçado com fundo branco para a captura
           const canvas = await html2canvas(element, {
               scale: 2.5, // Maior qualidade
               useCORS: true,
@@ -578,8 +586,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
       });
   };
 
-  // --- RENDER HELPERS ---
-  
   const renderSettingsTab = () => (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-rodovar-gray p-6 rounded-xl border border-gray-700 shadow-xl">
@@ -886,20 +892,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
           </div>
       )}
 
-      {/* COMPROVANTE DIGITAL - AJUSTADO PARA EXPORTAÇÃO PERFEITA */}
       {viewingProofShipment && viewingProofShipment.proof && (
           <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4">
               <div className="bg-rodovar-gray w-full max-w-[640px] rounded-2xl border border-gray-700 shadow-2xl p-6 relative max-h-[95vh] overflow-y-auto">
                    <button onClick={() => setViewingProofShipment(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white text-3xl">×</button>
                    <h2 className="text-xl font-bold text-white mb-6 uppercase tracking-widest text-center">Comprovante de Entrega</h2>
                    
-                   {/* CARD FINAL PARA EXPORTAÇÃO */}
                    <div 
                         id="admin-proof-card" 
                         className="bg-white text-black rounded-xl shadow-2xl overflow-hidden mx-auto border border-gray-200 mb-8" 
                         style={{ width: '100%', minWidth: '580px', backgroundColor: '#FFFFFF' }}
                    >
-                        {/* Header Verde do Comprovante */}
                         <div className="bg-[#16a34a] text-white p-4 flex justify-between items-center">
                               <div className="flex items-center gap-3">
                                   <DocumentCheckIcon className="w-6 h-6 text-white" />
@@ -910,7 +913,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                               </div>
                         </div>
 
-                        {/* Logo e Código */}
                         <div className="bg-gray-50 border-b border-gray-200 p-5 flex justify-between items-center">
                               <div className="flex items-center gap-3">
                                   {companyLogoUrl ? (
@@ -929,7 +931,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                               </div>
                         </div>
 
-                        {/* Conteúdo Principal do Canhoto */}
                         <div className="p-6 grid grid-cols-12 gap-6 bg-white">
                               <div className="col-span-6 space-y-6 border-r border-gray-100 pr-4">
                                   <div>
@@ -951,7 +952,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                               </div>
 
                               <div className="col-span-6 flex flex-col gap-4">
-                                  {/* Caixa de Assinatura Digital */}
                                   <div className="border border-gray-200 rounded-xl bg-gray-50 flex flex-col h-[130px] overflow-hidden shadow-inner">
                                       <p className="text-[9px] text-gray-400 uppercase font-black text-center pt-2 tracking-widest">Assinatura Digital</p>
                                       <div className="flex-1 flex items-center justify-center p-2">
@@ -959,7 +959,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                                       </div>
                                   </div>
 
-                                  {/* Caixa da Foto Local */}
                                   <div className="border border-gray-200 rounded-xl overflow-hidden h-[130px] relative bg-black shadow-inner">
                                       {viewingProofShipment.proof.photoBase64 ? (
                                           <>
@@ -979,7 +978,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                               </div>
                         </div>
 
-                        {/* Rodapé do Canhoto */}
                         <div className="bg-gray-50 p-4 text-center border-t border-gray-200">
                               <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest">
                                   Documento autêntico gerado eletronicamente em {new Date().toLocaleDateString('pt-BR')} • {companyName} Logística
@@ -995,7 +993,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
           </div>
       )}
 
-      {/* Header do Painel Admin */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 md:mb-8 gap-4">
         <div className="text-center md:text-left">
             <h2 className="text-2xl md:text-3xl font-bold text-rodovar-white">Painel {userRole}</h2>
@@ -1027,6 +1024,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                         <div className="grid grid-cols-2 gap-4">
                              <button type="button" onClick={() => handleCompanyChange('RODOVAR')} disabled={isEditing} className={`py-3 rounded font-bold border ${selectedCompany === 'RODOVAR' ? 'bg-rodovar-yellow text-black border-rodovar-yellow' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>RODOVAR</button>
                              <button type="button" onClick={() => handleCompanyChange('AXD')} disabled={isEditing} className={`py-3 rounded font-bold border ${selectedCompany === 'AXD' ? 'bg-blue-600 text-white border-blue-500' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>AXD</button>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4">
+                            <label className="text-gray-400 text-xs font-bold uppercase mb-1 block">Tipo de Carga</label>
+                            <select value={loadType} onChange={e => setLoadType(e.target.value)} className="w-full bg-rodovar-black border border-gray-700 rounded p-3 text-white focus:border-rodovar-yellow outline-none font-bold">
+                                {LOAD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <input value={code} readOnly className="bg-rodovar-black border border-gray-700 rounded p-2 text-rodovar-yellow font-bold text-center" />
@@ -1088,7 +1091,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, currentUser }) => {
                                     <span className="text-rodovar-yellow font-bold font-mono">{s.code}</span>
                                     <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${s.status === TrackingStatus.DELIVERED ? 'bg-green-900 text-green-400' : 'bg-gray-800 text-gray-400'}`}>{StatusLabels[s.status]}</span>
                                 </div>
-                                <div className="text-xs text-gray-400"><p>Origem: {s.origin}</p><p>Destino: {s.destination}</p></div>
+                                <div className="text-xs text-gray-400">
+                                    <p className="text-rodovar-yellow mb-1 font-bold">{s.loadType || 'CARGAS GERAIS'}</p>
+                                    <p>Origem: {s.origin}</p><p>Destino: {s.destination}</p>
+                                </div>
                                 <div className="flex justify-end gap-2 mt-2">
                                     <button onClick={() => handleShareMagicLink(s.code)} className="text-green-500 text-xs font-bold uppercase px-2 flex items-center gap-1 hover:text-green-400"><WhatsAppIcon className="w-3 h-3" /> Link Cliente</button>
                                     <button onClick={() => handleEditShipment(s)} className="text-blue-400 text-xs font-bold uppercase px-2">Editar</button>

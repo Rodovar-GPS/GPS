@@ -83,6 +83,7 @@ export interface TrackingData {
   code: string;
   company: 'RODOVAR' | 'AXD';
   status: TrackingStatus;
+  loadType?: string; // NOVO CAMPO
   isLive?: boolean; 
   currentLocation: {
     city: string;
