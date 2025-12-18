@@ -11,7 +11,7 @@ export enum TrackingStatus {
 export const StatusLabels: Record<TrackingStatus, string> = {
   [TrackingStatus.PENDING]: 'Aguardando Coleta',
   [TrackingStatus.IN_TRANSIT]: 'Em Trânsito',
-  [TrackingStatus.STOPPED]: 'Parado / Descanso',
+  [TrackingStatus.STOPPED]: 'PARADO',
   [TrackingStatus.DELIVERED]: 'Entregue / Finalizado',
   [TrackingStatus.DELAYED]: 'Atrasado',
   [TrackingStatus.EXCEPTION]: 'Problema / Retido'

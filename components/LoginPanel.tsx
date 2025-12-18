@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { validateLogin } from '../services/storageService';
 
@@ -18,6 +19,7 @@ const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onCancel }) => 
     try {
         const isValid = await validateLogin({ username, password });
         if (isValid) {
+          localStorage.setItem('rodovar_logged_admin', username);
           onLoginSuccess(username);
         } else {
           setError('Usuário ou senha incorretos.');
