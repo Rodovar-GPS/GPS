@@ -88,7 +88,6 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
     return () => {
       if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
       releaseWakeLock();
-      // Correção: Agora encerra o assistente silenciosamente ao desmontar o componente
       stopVoiceAssistant(true);
     };
   }, []);
@@ -262,7 +261,6 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
 
   const handleLogout = () => {
     stopLiveTracking();
-    // Correção: Encerra o assistente silenciosamente ao sair
     stopVoiceAssistant(true);
     localStorage.removeItem('rodovar_active_driver_code');
     setShipment(null);
@@ -371,6 +369,7 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                     destinationCoordinates={shipment.destinationCoordinates} 
                     status={shipment.status} 
                     company={shipment.company}
+                    shipmentData={shipment}
                     className="w-full h-full"
                  />
             </div>
