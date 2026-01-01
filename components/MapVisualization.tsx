@@ -70,14 +70,32 @@ const MapVisualization: React.FC<MapVisualizationProps> = React.memo(({ coordina
 
     const bounds = L.latLngBounds([]);
     const routePoints: any[] = [];
-    let nextTargetLat = destinationCoordinates?.lat || 0;
-    let nextTargetLng = destinationCoordinates?.lng || 0;
+
+    // Marcador da Localização do Usuário (Ponto Azul de GPS)
+    if (userLocation) {
+        const userIcon = L.divIcon({
+            className: 'user-location-icon',
+            html: `
+                <div class="relative w-6 h-6">
+                    <div class="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-50"></div>
+                    <div class="relative w-4 h-4 m-1 bg-blue-600 border-2 border-white rounded-full shadow-lg"></div>
+                </div>
+            `,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+        const userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon, zIndexOffset: 2000 })
+            .addTo(map)
+            .bindPopup("<div class='text-xs font-bold text-blue-600'>Sua Localização Atual</div>");
+        markersRef.current.push(userMarker);
+        bounds.extend([userLocation.lat, userLocation.lng]);
+    }
 
     if (coordinates) {
         const isStopped = status === TrackingStatus.STOPPED;
         let rotationAngle = 0;
-        if (nextTargetLat !== 0) {
-            rotationAngle = calculateBearing(coordinates.lat, coordinates.lng, nextTargetLat, nextTargetLng);
+        if (destinationCoordinates?.lat) {
+            rotationAngle = calculateBearing(coordinates.lat, coordinates.lng, destinationCoordinates.lat, destinationCoordinates.lng);
         }
 
         const cargoIconHtml = `
@@ -94,7 +112,6 @@ const MapVisualization: React.FC<MapVisualizationProps> = React.memo(({ coordina
             </div>
         `;
 
-        // POPUP COM CORREÇÃO DE CAMPOS UNDEFINED
         const popupContent = `
             <div class="p-2 w-52 text-black">
                 <div class="flex items-center gap-3 mb-3 border-b pb-2">
@@ -115,13 +132,9 @@ const MapVisualization: React.FC<MapVisualizationProps> = React.memo(({ coordina
                     <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
                         <p class="text-[9px] text-gray-400 uppercase font-bold mb-1 tracking-tighter">Trajeto Operacional</p>
                         <div class="flex flex-col gap-0.5">
-                            <p class="text-[10px] font-bold text-gray-600 uppercase truncate">DE: ${shipmentData?.origin || 'ORIGEM NÃO INFORMADA'}</p>
-                            <p class="text-[10px] font-black text-black uppercase truncate">PARA: ${shipmentData?.destination || 'DESTINO NÃO INFORMADO'}</p>
+                            <p class="text-[10px] font-bold text-gray-600 uppercase truncate">DE: ${shipmentData?.origin || 'ORIGEM'}</p>
+                            <p class="text-[10px] font-black text-black uppercase truncate">PARA: ${shipmentData?.destination || 'DESTINO'}</p>
                         </div>
-                    </div>
-                    <div class="pt-1 border-t mt-1 flex justify-between items-center">
-                        <span class="text-[9px] font-bold text-gray-400 uppercase">Projeção Satélite</span>
-                        <span class="text-[10px] font-black text-green-600 uppercase">Rumo a ${Math.round(rotationAngle)}°</span>
                     </div>
                 </div>
             </div>
@@ -140,23 +153,22 @@ const MapVisualization: React.FC<MapVisualizationProps> = React.memo(({ coordina
     }
 
     if (destinationCoordinates && (destinationCoordinates.lat !== 0 || destinationCoordinates.lng !== 0)) {
-        const destMarker = L.marker([destinationCoordinates.lat, destinationCoordinates.lng], { 
-            icon: L.divIcon({
-                className: 'custom-div-icon',
-                html: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" fill="#DC2626" stroke="white" stroke-width="1.5"/></svg>`,
-                iconSize: [40, 40],
-                iconAnchor: [20, 38] 
-            }) 
-        }).addTo(map).bindPopup("<b>DESTINO FINAL</b>");
+        const destIcon = L.divIcon({
+            className: 'dest-icon',
+            html: `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" fill="#DC2626" stroke="white" stroke-width="1.5"/></svg>`,
+            iconSize: [40, 40],
+            iconAnchor: [20, 38] 
+        });
+        const destMarker = L.marker([destinationCoordinates.lat, destinationCoordinates.lng], { icon: destIcon })
+            .addTo(map)
+            .bindPopup("<b>DESTINO FINAL</b>");
         markersRef.current.push(destMarker);
         bounds.extend([destinationCoordinates.lat, destinationCoordinates.lng]);
         routePoints.push([destinationCoordinates.lat, destinationCoordinates.lng]);
     }
 
     if (routePoints.length > 1) {
-        L.polyline(routePoints, { color: '#FFFFFF', weight: 6, opacity: 0.8 }).addTo(map);
-        const line = L.polyline(routePoints, { color: '#000000', weight: 3, opacity: 1, dashArray: '10, 10' }).addTo(map);
-        polylinesRef.current.push(line);
+        L.polyline(routePoints, { color: '#000000', weight: 3, opacity: 0.6, dashArray: '10, 10' }).addTo(map);
     }
     
     if (bounds.isValid()) {

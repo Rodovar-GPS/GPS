@@ -1,12 +1,13 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { TrackingData, TrackingStatus, Coordinates, StatusLabels, CompanySettings } from '../types';
-import { getShipment, saveShipment, getCompanySettings } from '../services/storageService';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { TrackingData, TrackingStatus, StatusLabels, CompanySettings, Coordinates } from '../types';
+import { getShipment, saveShipment, getCompanySettings, getDistanceFromLatLonInKm } from '../services/storageService';
 import MapVisualization from './MapVisualization';
-import { TruckIcon, SteeringWheelIcon, MicrophoneIcon, UserIcon } from './Icons';
+import { TruckIcon, SteeringWheelIcon, MicrophoneIcon, UserIcon, MapPinIcon, ClockIcon } from './Icons';
 
 interface DriverPanelProps {
   onClose: () => void;
+  userLocation: Coordinates | null;
 }
 
 interface IWindow extends Window {
@@ -14,7 +15,7 @@ interface IWindow extends Window {
   SpeechRecognition: any;
 }
 
-const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
+const DriverPanel: React.FC<DriverPanelProps> = ({ onClose, userLocation }) => {
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
       name: 'RODOVAR',
       slogan: 'Logística Inteligente',
@@ -41,6 +42,19 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
     const now = new Date();
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} - ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`;
   };
+
+  const remainingKm = useMemo(() => {
+    if (shipment?.currentLocation?.coordinates && shipment?.destinationCoordinates) {
+        const d = getDistanceFromLatLonInKm(
+            shipment.currentLocation.coordinates.lat,
+            shipment.currentLocation.coordinates.lng,
+            shipment.destinationCoordinates.lat,
+            shipment.destinationCoordinates.lng
+        );
+        return Math.round(d);
+    }
+    return null;
+  }, [shipment]);
 
   useEffect(() => {
     loadSettings();
@@ -97,11 +111,21 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
       window.speechSynthesis.cancel(); 
       const utterance = new SpeechSynthesisUtterance(text);
       const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
-      const ptVoice = voices.find(v => v.lang.includes('pt-BR') && v.name.includes('Google')) || voices.find(v => v.lang.includes('pt-BR'));
-      if (ptVoice) utterance.voice = ptVoice;
+      
+      // Prioridade para vozes masculinas brasileiras (Daniel, Ricardo, Google)
+      const maleVoice = voices.find(v => 
+        v.lang.includes('pt-BR') && 
+        (v.name.includes('Daniel') || v.name.includes('Ricardo') || v.name.includes('Google') || v.name.includes('Male'))
+      );
+      
+      const brVoice = maleVoice || voices.find(v => v.lang.includes('pt-BR'));
+      
+      if (brVoice) utterance.voice = brVoice;
       utterance.lang = 'pt-BR';
-      utterance.rate = 1.2; 
-      utterance.pitch = 1.0;
+      
+      // Velocidade 1.60 conforme solicitado
+      utterance.rate = 1.60; 
+      utterance.pitch = 0.95; // Tom levemente mais grave para voz masculina profissional
       window.speechSynthesis.speak(utterance);
     }
   };
@@ -120,14 +144,14 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
 
     rec.onstart = () => {
       setIsVoiceActive(true);
-      if(!silent) speak("Assistente de voz ativado. Estou ouvindo.");
+      if(!silent) speak("Assistente ativo, viu? Tô na escuta!");
     };
 
     rec.onresult = (e: any) => {
         const cmd = e.results[e.results.length-1][0].transcript.toLowerCase();
         console.log("Comando recebido:", cmd);
         if (cmd.includes('ajuda') || cmd.includes('problema') || cmd.includes('emergência')) {
-            speak("Entendido. Enviando alerta de emergência para a central agora.");
+            speak("Entendido, meu patrão! Alerta de emergência enviado pra central. Fica tranquilo!");
             sendWhatsAppUpdate('problem');
         } else if (cmd.includes('desativar') || cmd.includes('parar assistente')) {
             toggleVoiceAssistant();
@@ -147,7 +171,7 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
         recognitionRef.current = null;
     }
     setIsVoiceActive(false); 
-    if(!silent) speak("Assistente de voz desativado.");
+    if(!silent) speak("Assistente desativado. Valeu!");
   };
 
   const toggleVoiceAssistant = () => {
@@ -178,13 +202,17 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
       if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
       
       performUpdate();
-      trackingIntervalRef.current = window.setInterval(() => performUpdate(), 15000);
+      trackingIntervalRef.current = window.setInterval(() => performUpdate(), 10000); 
       
       if(!silentRestore) {
           const s = shipmentRef.current;
-          const firstName = s?.driverName?.split(' ')[0] || 'Motorista';
-          speak(`Olá, ${firstName}. Rastreamento satélite ativado. Viagem para ${s?.destination} iniciada. Dirija com segurança!`);
-          setTimeout(() => startVoiceAssistant(true), 5000);
+          const driverName = s?.driverName?.split(' ')[0] || 'Motorista';
+          const destination = s?.destination || 'o destino';
+          
+          // Frase personalizada conforme solicitado
+          speak(`${driverName}, Iniciaremos a viagem para ${destination}, coloque o cinto, verifique sua segurança, Boa Viagem!`);
+          
+          setTimeout(() => startVoiceAssistant(true), 6000);
       }
   };
 
@@ -315,7 +343,7 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                </div>
                <div>
                   <h1 className="text-xl font-black text-white uppercase tracking-tighter">{shipment.code}</h1>
-                  <p className="text-[10px] text-rodovar-yellow font-black uppercase tracking-widest">{shipment.driverName}</p>
+                  <p className="text-[10px] text-rodovar-yellow font-black uppercase tracking-widest">LOGADO: {shipment.driverName}</p>
                </div>
             </div>
             <button onClick={handleLogout} className="w-full md:w-auto text-red-400 text-[10px] font-black border border-red-900/30 px-6 py-3 rounded-xl hover:bg-red-900/10 uppercase tracking-widest">Sair do Painel</button>
@@ -326,8 +354,21 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                 <div className="bg-rodovar-gray p-8 rounded-3xl border border-gray-700 text-center shadow-2xl relative overflow-hidden">
                      <div className="relative z-10">
                         <span className="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] block mb-2">Destino Final</span>
-                        <h2 className="text-3xl font-black text-white uppercase mb-8">{shipment.destination}</h2>
+                        <h2 className="text-3xl font-black text-white uppercase mb-4">{shipment.destination}</h2>
                         
+                        <div className="mb-8 flex flex-col items-center justify-center">
+                            <div className="bg-black/50 border border-rodovar-yellow/30 px-8 py-4 rounded-2xl shadow-inner">
+                                <p className="text-rodovar-yellow text-[10px] font-black uppercase tracking-[0.4em] mb-1">Distância Restante</p>
+                                <p className="text-5xl font-black text-white font-mono tracking-tighter">
+                                    {remainingKm !== null ? `${remainingKm}` : '--'}
+                                    <span className="text-lg ml-1 text-rodovar-yellow">KM</span>
+                                </p>
+                            </div>
+                            <p className="text-[9px] text-gray-500 mt-2 font-bold uppercase animate-pulse">
+                                {isLiveTracking ? '● Atualizando Quilometragem via Satélite' : 'Aguardando Início do Rastreio'}
+                            </p>
+                        </div>
+
                         <button 
                           onClick={toggleTripStatus} 
                           className={`w-full py-6 rounded-2xl font-black uppercase tracking-widest shadow-2xl transition-all hover:scale-[1.02] active:scale-95 text-sm flex items-center justify-center gap-3 ${isLiveTracking ? 'bg-red-600 text-white shadow-red-900/20' : 'bg-green-600 text-white shadow-green-900/20'}`}
@@ -342,6 +383,21 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                           </div>
                         )}
                      </div>
+                </div>
+
+                <div className="bg-rodovar-gray p-6 rounded-3xl border border-gray-700 shadow-xl space-y-4">
+                    <div className="flex items-center gap-2">
+                        <MapPinIcon className="w-5 h-5 text-rodovar-yellow" />
+                        <h3 className="text-white text-xs font-black uppercase">Endereço GPS Atual</h3>
+                    </div>
+                    <div className="bg-black/40 p-4 rounded-xl border border-gray-800">
+                        <p className="text-[11px] font-bold text-gray-300 uppercase leading-relaxed">
+                            {shipment.currentLocation.address || 'Buscando endereço exato...'}
+                        </p>
+                        <p className="text-[9px] text-gray-500 mt-2 font-black uppercase tracking-widest">
+                            {shipment.currentLocation.city}, {shipment.currentLocation.state}
+                        </p>
+                    </div>
                 </div>
 
                 <div className="bg-rodovar-gray p-6 rounded-3xl border border-gray-700 shadow-xl transition-all duration-500">
@@ -359,7 +415,6 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                     >
                        {isVoiceActive ? 'DESATIVAR ASSISTENTE' : 'ATIVAR ASSISTENTE DE VOZ'}
                     </button>
-                    <p className="text-[9px] text-gray-500 mt-4 text-center uppercase font-bold tracking-tighter">Diga "AJUDA" ou "EMERGÊNCIA" para alertar a base.</p>
                 </div>
             </div>
 
@@ -367,6 +422,7 @@ const DriverPanel: React.FC<DriverPanelProps> = ({ onClose }) => {
                  <MapVisualization 
                     coordinates={shipment.currentLocation.coordinates} 
                     destinationCoordinates={shipment.destinationCoordinates} 
+                    userLocation={userLocation}
                     status={shipment.status} 
                     company={shipment.company}
                     shipmentData={shipment}
