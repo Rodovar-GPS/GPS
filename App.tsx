@@ -40,48 +40,33 @@ const App: React.FC = () => {
   const [locationLoading, setLocationLoading] = useState(true);
 
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
-
-  // Função utilitária para fala natural, muito rápida e masculina
-  const speakNatural = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'pt-BR';
-      const voices = window.speechSynthesis.getVoices();
-      
-      // Prioriza vozes masculinas brasileiras para tom de "patrão"
-      const maleVoice = voices.find(v => 
-        v.lang.includes('pt-BR') && 
-        (v.name.includes('Daniel') || v.name.includes('Ricardo') || v.name.includes('Google') || v.name.includes('Male'))
-      );
-      
-      const brVoice = maleVoice || voices.find(v => v.lang.includes('pt-BR'));
-      if (brVoice) utterance.voice = brVoice;
-      
-      utterance.rate = 1.60; // Velocidade 1.60 conforme solicitado
-      utterance.pitch = 0.90; // Tom levemente grave
-      window.speechSynthesis.speak(utterance);
-    }
-  };
 
   useEffect(() => {
-      if (adminUser && currentView === 'admin') {
+      if (adminUser) {
           const today = new Date().toISOString().split('T')[0];
           const lastWelcome = localStorage.getItem(`last_welcome_${adminUser}`);
           
           if (lastWelcome !== today) {
-              const loginPhrases = [
-                  `Bem-vindo, ${adminUser}, Muito trabalho por aqui hoje!`,
-                  "Que bom que voltou, Vamos produzir?",
-                  "Tem novidades no sistema, viu? Dê uma olhada."
-              ];
-              const randomMsg = loginPhrases[Math.floor(Math.random() * loginPhrases.length)];
-              speakNatural(randomMsg);
-              localStorage.setItem(`last_welcome_${adminUser}`, today);
+              const msg = "Seja bem vindo, meu chef!";
+              
+              if ('speechSynthesis' in window) {
+                  const utterance = new SpeechSynthesisUtterance(msg);
+                  utterance.lang = 'pt-BR';
+                  const voices = window.speechSynthesis.getVoices();
+                  const brVoice = voices.find(v => v.lang.includes('pt-BR') && (v.name.includes('Google') || v.name.includes('Luciana')));
+                  if (brVoice) utterance.voice = brVoice;
+                  utterance.rate = 1.1; 
+                  utterance.pitch = 1.0;
+                  window.speechSynthesis.speak(utterance);
+              }
+              
+              setTimeout(() => {
+                  alert(`👔 ${msg}`);
+                  localStorage.setItem(`last_welcome_${adminUser}`, today);
+              }, 1000);
           }
       }
-  }, [adminUser, currentView]);
+  }, [adminUser]);
 
   useEffect(() => {
       const params = new URLSearchParams(window.location.search);
@@ -89,7 +74,9 @@ const App: React.FC = () => {
       if (magicCode) {
           const cleanCode = magicCode.trim().toUpperCase();
           setTrackingCode(cleanCode);
-          handleTrack(undefined, cleanCode);
+          setTimeout(() => {
+              handleTrack(undefined, cleanCode);
+          }, 500);
       }
   }, []);
 
@@ -124,23 +111,13 @@ const App: React.FC = () => {
             );
             const data = await response.json();
             if (data && data.address) {
-                const addr = data.address;
-                const parts = [];
-                if (addr.road) parts.push(addr.road);
-                if (addr.suburb || addr.neighbourhood) parts.push(addr.suburb || addr.neighbourhood);
-                if (addr.city || addr.town) parts.push(addr.city || addr.town);
-                if (addr.state) parts.push(addr.state);
-                if (addr.region) parts.push(addr.region);
-                if (addr.postcode) parts.push(addr.postcode);
-                if (addr.country) parts.push(addr.country);
-
                 setUserAddress({
-                    road: addr.road || 'Rua não identificada',
-                    neighborhood: addr.suburb || addr.neighbourhood || '',
-                    city: addr.city || addr.town || '',
-                    state: addr.state || '',
-                    country: addr.country || '',
-                    formatted: parts.join(', ')
+                    road: data.address.road || 'Rua não identificada',
+                    neighborhood: data.address.suburb || data.address.neighbourhood || '',
+                    city: data.address.city || data.address.town || '',
+                    state: data.address.state || '',
+                    country: data.address.country || '',
+                    formatted: data.display_name
                 });
             }
           } catch (err) {
@@ -184,7 +161,7 @@ const App: React.FC = () => {
                         setRemainingDistance(Math.round(dist));
                    }
                } catch (e) { console.error(e); }
-          }, 8000); 
+          }, 10000); 
       }
       return () => { if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current); };
   }, [trackingData?.isLive, trackingData?.code, trackingData?.status]);
@@ -221,14 +198,6 @@ const App: React.FC = () => {
   }, [trackingCode]);
 
   const handleLogout = () => {
-      const logoutPhrases = [
-          "Não esqueça de voltar viu..",
-          "Lembre sempre que rastrear, bom descanso.",
-          "Já vai? que pena, bom descanso."
-      ];
-      const randomFarewell = logoutPhrases[Math.floor(Math.random() * logoutPhrases.length)];
-      speakNatural(randomFarewell);
-
       setAdminUser('');
       localStorage.removeItem('rodovar_logged_admin');
       setCurrentView('tracking');
@@ -236,48 +205,21 @@ const App: React.FC = () => {
   };
 
   const toggleVoiceSearch = () => {
+    if (isListening) { window.location.reload(); return; }
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return alert("Seu navegador não suporta reconhecimento de voz.");
-
-    if (isListening) {
-      if (recognitionRef.current) recognitionRef.current.stop();
-      setIsListening(false);
-      return;
-    }
-
+    if (!SpeechRecognition) return alert("Navegador sem suporte.");
     const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
     recognition.lang = 'pt-BR';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
     recognition.onstart = () => setIsListening(true);
     recognition.onend = () => setIsListening(false);
-    
     recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript.toLowerCase().trim();
-      console.log("Comando de voz:", transcript);
-
-      if (transcript.includes('motorista') || transcript.includes('sou motorista')) {
-        setCurrentView('driver');
-        return;
-      }
-      if (transcript.includes('admin') || transcript.includes('login') || transcript.includes('área restrita')) {
-        setCurrentView('login');
-        return;
-      }
-
-      let codeMatch = transcript;
-      const keywords = ['rastrear', 'buscar', 'código', 'carga', 'procurar'];
-      keywords.forEach(k => { codeMatch = codeMatch.replace(k, ''); });
-      
-      const cleanCode = codeMatch.trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-      if (cleanCode.length >= 3) {
-        setTrackingCode(cleanCode);
-        handleTrack(undefined, cleanCode);
-      }
+      const transcript = event.results[0][0].transcript.toLowerCase();
+      if (transcript.includes('motorista')) { setCurrentView('driver'); return; }
+      if (transcript.includes('admin') || transcript.includes('login')) { setCurrentView('login'); return; }
+      let code = transcript.replace('rastrear', '').replace('buscar', '').replace('código', '').replace('carga', '').trim();
+      const cleanCode = code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (cleanCode.length >= 3) { setTrackingCode(cleanCode); handleTrack(undefined, cleanCode); }
     };
-
     recognition.start();
   };
 
@@ -471,6 +413,7 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="space-y-6 md:space-y-8">
+                                    {/* TIPO DE CARGA NO RASTREIO */}
                                     <div className="bg-black/40 p-3 rounded-xl border border-gray-700">
                                         <p className="text-[10px] text-gray-500 uppercase font-bold mb-1 tracking-widest">Tipo de Carga</p>
                                         <p className="text-sm font-black text-rodovar-yellow uppercase">{trackingData.loadType || 'CARGAS GERAIS'}</p>
@@ -486,6 +429,17 @@ const App: React.FC = () => {
                                                     {trackingData.currentLocation.address}
                                                 </p>
                                             )}
+                                            {trackingData.driverName && (
+                                                <div className="flex items-center gap-3 mt-4 bg-black/20 p-3 rounded-lg border border-gray-800">
+                                                    <div className="w-10 h-10 rounded-full overflow-hidden border border-rodovar-yellow bg-gray-900">
+                                                        {trackingData.driverPhoto ? <img src={trackingData.driverPhoto} className="w-full h-full object-cover" /> : <UserIcon className="w-6 h-6 m-auto text-gray-500" />}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-gray-500 uppercase font-black">Motorista Responsável</p>
+                                                        <p className="text-sm font-black text-white uppercase">{trackingData.driverName}</p>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div><h4 className="text-gray-500 text-[10px] uppercase mb-1">Origem</h4><p className="text-xs font-semibold text-gray-300">{trackingData.origin}</p></div>
@@ -495,31 +449,14 @@ const App: React.FC = () => {
                                     <div className="bg-black/30 rounded-xl p-4 grid grid-cols-3 gap-2 border border-gray-800 text-center">
                                         <div><h4 className="text-gray-500 text-[8px] uppercase">Atualizado</h4><p className="text-[10px] text-gray-300">{trackingData.lastUpdate}</p></div>
                                         <div><h4 className="text-gray-500 text-[8px] uppercase">Chegada</h4><p className="text-[10px] text-rodovar-yellow">{trackingData.estimatedDelivery}</p></div>
-                                        <div className="bg-rodovar-yellow/10 rounded-lg p-1 border border-rodovar-yellow/20">
-                                            <h4 className="text-gray-500 text-[8px] uppercase">Km Restante</h4>
-                                            <p className="text-sm text-rodovar-yellow font-black leading-none mt-1">
-                                                {remainingDistance !== null ? `${remainingDistance}km` : '--'}
-                                            </p>
-                                        </div>
+                                        <div><h4 className="text-gray-500 text-[8px] uppercase">Km Faltando</h4><p className="text-[10px] text-rodovar-yellow font-bold">{remainingDistance !== null ? `${remainingDistance}km` : '--'}</p></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    <div className={`flex-1 order-1 lg:order-2 transition-all duration-700 ease-in-out flex flex-col gap-4 ${loading || trackingData ? 'min-h-[400px]' : 'min-h-[300px]'}`}>
-                        {userLocation && (
-                          <div className="bg-indigo-900/30 border border-indigo-500/30 p-4 rounded-xl flex items-center gap-3">
-                            <div className="p-2 bg-indigo-600 rounded-lg">
-                              <MapPinIcon className="w-5 h-5 text-white" />
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">Seu Endereço GPS Exato</p>
-                              <p className="text-xs font-bold text-white uppercase">{userAddress?.formatted || 'Buscando endereço...'}</p>
-                            </div>
-                          </div>
-                        )}
-                        
+                    <div className={`flex-1 order-1 lg:order-2 transition-all duration-700 ease-in-out ${loading || trackingData ? 'h-[40vh] md:h-[500px]' : 'h-[30vh] md:h-[300px]'}`}>
                         <MapVisualization 
                             loading={loading} 
                             coordinates={trackingData?.currentLocation.coordinates}
@@ -529,7 +466,7 @@ const App: React.FC = () => {
                             status={trackingData?.status}
                             company={trackingData?.company}
                             shipmentData={trackingData || {}}
-                            className="flex-grow w-full"
+                            className="h-full w-full"
                         />
                     </div>
                 </div>
@@ -537,16 +474,8 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <button onClick={toggleVoiceSearch} className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl transition-all z-50 hover:scale-110 flex items-center justify-center ${isListening ? 'bg-red-600 animate-pulse' : 'bg-indigo-600 shadow-indigo-900/40'}`}>
-        {isListening ? (
-          <div className="flex gap-1 items-end h-6">
-            <div className="w-1 bg-white h-3 animate-[pulse_1s_infinite]"></div>
-            <div className="w-1 bg-white h-5 animate-[pulse_0.8s_infinite]"></div>
-            <div className="w-1 bg-white h-3 animate-[pulse_1.2s_infinite]"></div>
-          </div>
-        ) : (
-          <MicrophoneIcon className="w-6 h-6 text-white" />
-        )}
+      <button onClick={toggleVoiceSearch} className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl transition-all z-50 hover:scale-110 flex items-center justify-center ${isListening ? 'bg-red-600 animate-pulse' : 'bg-indigo-600'}`}>
+        {isListening ? <div className="flex gap-1"><div className="w-1 bg-white h-3 animate-pulse"></div><div className="w-1 bg-white h-5 animate-pulse"></div><div className="w-1 bg-white h-3 animate-pulse"></div></div> : <MicrophoneIcon className="w-6 h-6 text-white" />}
       </button>
 
       <footer className="bg-rodovar-black border-t border-gray-900 py-6 mt-auto">
